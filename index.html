@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingreso de Respuestas (Versión Simple)</title>
+    <!-- Carga de Tailwind CSS para un diseño moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos adicionales para mejorar la experiencia */
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+        .table-container { width: 100%; overflow-x: auto; }
+        input[type="number"] { width: 60px; padding: 4px 8px; border-radius: 6px; border: 1px solid #d1d5db; text-align: center; }
+        .download-btn, .g-btn { font-weight: bold; padding: 12px 24px; border-radius: 8px; cursor: pointer; transition: background-color 0.3s; border: none; }
+        .download-btn { background-color: #16a34a; color: white; }
+        .download-btn:hover { background-color: #15803d; }
+        .g-btn { background-color: #4285F4; color: white; }
+        .g-btn:hover { background-color: #3367D6; }
+        .g-btn:disabled { background-color: #9e9e9e; cursor: not-allowed; }
+        .alt-group { display: flex; justify-content: center; gap: 4px; }
+        .alt-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid #ccc; border-radius: 50%; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; background-color: #fff; transition: all 0.2s; }
+        .alt-btn:hover { background-color: #f0f0f0; }
+        .alt-btn.selected { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .active-row { background-color: #fef9c3 !important; }
+        .active-cell { background-color: #fdba74 !important; outline: 2px solid #f97316; outline-offset: -2px; }
+        #voice-btn.listening { background-color: #ef4444; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <header class="mb-6 border-b pb-4">
+            <h1 class="text-3xl font-bold text-gray-800">Formulario de Ingreso Híbrido de Respuestas</h1>
+            <p id="course-title" class="text-lg text-gray-600 mt-1">Curso de Ejemplo: 2º Básico A</p>
+        </header>
+
+        <!-- SECCIÓN DE CONFIGURACIÓN Y CARGA DE DATOS (COMENTADA) -->
+        <!-- 
+        <div class="bg-gray-100 p-4 rounded-lg mb-8 border">
+            <h3 class="font-bold text-lg mb-2">1. Cargar Datos del Curso</h3>
+            <p class="text-sm text-gray-600 mb-4">Haz clic para iniciar sesión con tu cuenta de Google y cargar la lista de estudiantes desde la Hoja de Cálculo configurada para tu colegio.</p>
+            <div class="flex items-center gap-4">
+                <button id="authorize_button" class="g-btn">Cargar Datos desde Google</button>
+                <button id="signout_button" class="g-btn" style="display: none; background-color: #db4437;">Cerrar Sesión de Google</button>
+                <div id="loading-feedback" class="font-mono text-gray-700"></div>
+            </div>
+        </div>
+        -->
+
+        <main id="main-content">
+             <!-- SECCIÓN DE CONTROLES DE INGRESO RÁPIDO -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <!-- SECCIÓN DE INGRESO TIPO TERMINAL -->
+                <div class="bg-gray-800 text-white rounded-lg p-4 shadow-md">
+                    <h3 class="text-lg font-bold text-green-400 font-mono">⚡ Terminal de Ingreso Rápido</h3>
+                    <div class="flex items-center gap-4 mt-3">
+                        <span class="font-mono text-green-400">$ &gt;</span>
+                        <input type="text" id="terminal-input" class="flex-grow bg-gray-900 text-green-300 font-mono p-2 rounded-md border border-gray-600 focus:ring-2 focus:ring-green-400 focus:outline-none" placeholder="Escribe: AABBC o A*5...">
+                    </div>
+                     <div id="terminal-feedback" class="text-yellow-400 text-sm mt-2 font-mono h-4"></div>
+                </div>
+
+                <!-- SECCIÓN DE INGRESO POR VOZ -->
+                <div class="bg-blue-800 text-white rounded-lg p-4 shadow-md">
+                     <h3 class="text-lg font-bold text-cyan-300 font-mono">🎤 Comando por Voz</h3>
+                     <div class="flex items-center gap-4 mt-3">
+                        <button id="voice-btn" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold p-3 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                        </button>
+                        <div id="voice-feedback" class="flex-grow bg-blue-900 text-cyan-300 font-mono p-2 rounded-md border border-blue-600 h-10"></div>
+                     </div>
+                </div>
+            </div>
+
+            <div class="table-container rounded-lg border">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th scope="col" class="sticky left-0 bg-gray-100 px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Estudiante</th>
+                            <th scope="col" class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">RUT</th>
+                            <!-- Generación de encabezados de preguntas -->
+                            <script>
+                                const preguntas_3_alt = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19, 20];
+                                for (let i = 1; i <= 20; i++) {
+                                    const colorClass = preguntas_3_alt.includes(i) ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800';
+                                    document.write(`<th scope="col" class="px-4 py-3 text-center text-xs font-bold ${colorClass} uppercase tracking-wider">P${i}</th>`);
+                                }
+                            </script>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="students-table-body"></tbody>
+                </table>
+            </div>
+
+            <footer class="mt-8 text-center">
+                <button id="download-csv-btn" class="download-btn">
+                    Generar y Descargar CSV
+                </button>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Google API Client Library (COMENTADO) -->
+    <!-- 
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    -->
+
+    <script>
+        // --- LÓGICA DE LA APLICACIÓN (VERSIÓN SIMPLE) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // DATOS DE ESTUDIANTES DE EJEMPLO (HARDCODED)
+            const studentData = [
+                { name: "Maximiliano Andrés Aceitón Hernández", rut: "26045838-8" },
+                { name: "Constanza Andrea Acevedo Rojas", rut: "25495346-6" },
+                { name: "Víctor Patricio Aedo Becerra", rut: "26114883-8" },
+                { name: "Antonia Sofía Avendaño Jiménez", rut: "25964073-3" },
+                { name: "Martin Antonio Blanca Gutiérrez", rut: "25926919-9" },
+                { name: "Kataleia Francesca Castro Villanueva", rut: "26095657-4" },
+                { name: "Lía Isidora Cleary Villarroel", rut: "25779581-0" },
+                { name: "Luana Valentina Cuyuche Del Carpio", rut: "25839768-1" },
+                { name: "Gaspar Ignacio Doren Parada", rut: "25982072-3" },
+                { name: "Mateo de Jesús Herrera Ferrer", rut: "26731519-1" },
+                { name: "Tomas Alonso Herrera González", rut: "25918404-5" },
+                { name: "Mía Alejandra Miqueles Jaque", rut: "25796362-4" },
+                { name: "Natalia Andreina Montes de Oca Altuve", rut: "26907785-9" },
+                { name: "Jacobo Montoya Martinez", rut: "100756019-9" },
+                { name: "Emilio Ezequiel Ollarce Jeria", rut: "26063479-8" },
+                { name: "Atenea Orellana Romeo", rut: "26134235-9" },
+                { name: "Dante Alejandro Páez Moya", rut: "25730068-4" },
+            ];
+            
+            initializeTable(studentData);
+        });
+
+        function initializeTable(studentData) {
+            const tableBody = document.getElementById('students-table-body');
+            tableBody.innerHTML = '';
+            const preguntas_3_alt = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19, 20];
+            let activeCell = null;
+
+            function setActiveCell(cell) {
+                if (activeCell) {
+                    activeCell.classList.remove('active-cell');
+                    activeCell.parentElement.classList.remove('active-row');
+                }
+                if (cell) {
+                    cell.classList.add('active-cell');
+                    cell.parentElement.classList.add('active-row');
+                    activeCell = cell;
+                    activeCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                } else {
+                    activeCell = null;
+                }
+            }
+
+            function populateTable() {
+                studentData.forEach((student) => {
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-gray-50";
+                    row.innerHTML = `<td class="sticky left-0 bg-white hover:bg-gray-50 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student.name}</td>`;
+                    row.innerHTML += `<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${student.rut}</td>`;
+
+                    for (let i = 1; i <= 20; i++) {
+                        const cell = document.createElement('td');
+                        cell.className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center";
+                        cell.dataset.type = preguntas_3_alt.includes(i) ? 'alt' : 'score';
+                        
+                        if (cell.dataset.type === 'alt') {
+                            cell.innerHTML = `
+                                <input type="hidden" class="data-value">
+                                <div class="alt-group">
+                                    <div class="alt-btn" data-value="A">A</div>
+                                    <div class="alt-btn" data-value="B">B</div>
+                                    <div class="alt-btn" data-value="C">C</div>
+                                </div>`;
+                        } else {
+                            cell.innerHTML = `<input type="number" min="0" max="5" class="score-input w-16 text-center data-value">`;
+                        }
+                        row.appendChild(cell);
+                    }
+                    tableBody.appendChild(row);
+                });
+            }
+
+            function advanceToNextCell(cell) {
+                let nextCell = cell.nextElementSibling;
+                if (nextCell && nextCell.dataset.type) {
+                    return nextCell;
+                } else {
+                    const currentRow = cell.parentElement;
+                    const nextRow = currentRow.nextElementSibling;
+                    if (nextRow) {
+                        return nextRow.querySelector('td[data-type]');
+                    }
+                }
+                return null;
+            }
+
+            function handleCellSelection(cell, value) {
+                if (!cell || cell.dataset.type !== 'alt') return cell;
+                const hiddenInput = cell.querySelector('input.data-value');
+                const buttons = cell.querySelectorAll('.alt-btn');
+                buttons.forEach(btn => btn.classList.remove('selected'));
+                const selectedBtn = Array.from(buttons).find(btn => btn.dataset.value === value);
+                if (selectedBtn) {
+                    selectedBtn.classList.add('selected');
+                    if(hiddenInput) hiddenInput.value = value;
+                }
+                return advanceToNextCell(cell);
+            }
+            
+            tableBody.addEventListener('click', function(e) {
+                const cell = e.target.closest('td[data-type]');
+                if (cell) setActiveCell(cell);
+                if (e.target.classList.contains('alt-btn')) {
+                    const newActiveCell = handleCellSelection(cell, e.target.dataset.value);
+                    setActiveCell(newActiveCell);
+                }
+            });
+            
+            const terminalInput = document.getElementById('terminal-input');
+            const terminalFeedback = document.getElementById('terminal-feedback');
+
+            function processInput(inputString) {
+                if (!activeCell) return { error: "Error: No hay una celda activa.", count: 0 };
+                let input = inputString.toUpperCase().trim().replace(/([A-D])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+                let responses = input.split(/[\s,]+/).join('').split('');
+                let processedCount = 0;
+                let currentCell = activeCell;
+
+                for (const response of responses) {
+                    if (!currentCell) break;
+                    if (currentCell.dataset.type === 'alt' && ['A', 'B', 'C', 'D'].includes(response)) {
+                        currentCell = handleCellSelection(currentCell, response);
+                        processedCount++;
+                    }
+                }
+                setActiveCell(currentCell);
+                return { error: null, count: processedCount };
+            }
+
+            terminalInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const result = processInput(terminalInput.value);
+                    terminalFeedback.textContent = result.error || `✓ ${result.count} respuestas procesadas.`;
+                    terminalInput.value = '';
+                    setTimeout(() => terminalFeedback.textContent = '', 3000);
+                }
+            });
+            
+            const voiceBtn = document.getElementById('voice-btn');
+            const voiceFeedback = document.getElementById('voice-feedback');
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
+
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.lang = 'es-ES';
+                recognition.interimResults = true;
+                voiceBtn.addEventListener('click', () => {
+                    if (voiceBtn.classList.contains('listening')) recognition.stop();
+                    else recognition.start();
+                });
+                recognition.onstart = () => { voiceBtn.classList.add('listening'); voiceFeedback.textContent = "Escuchando..."; };
+                recognition.onend = () => { voiceBtn.classList.remove('listening'); voiceFeedback.textContent = "Micrófono desactivado."; };
+                recognition.onresult = (event) => {
+                    let transcript = Array.from(event.results).map(result => result[0].transcript).join('');
+                    voiceFeedback.textContent = `Detectado: "${transcript}"`;
+                    if (event.results[event.results.length - 1].isFinal) {
+                        const result = processInput(transcript);
+                        voiceFeedback.textContent = result.error || `✓ ${result.count} respuestas procesadas.`;
+                    }
+                };
+                recognition.onerror = (event) => { voiceFeedback.textContent = `Error de voz: ${event.error}`; };
+            } else {
+                voiceBtn.disabled = true;
+                voiceFeedback.textContent = "Reconocimiento de voz no soportado.";
+            }
+
+            function downloadCSV() {
+                const headers = ['RUT', 'Nombre Completo'];
+                for (let i = 1; i <= 20; i++) headers.push(`P${i}`);
+                let csvContent = headers.join(',') + '\n';
+                const rows = tableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const studentName = row.cells[0].textContent;
+                    const studentRut = row.cells[1].textContent;
+                    let csvRow = [`"${studentRut}"`, `"${studentName}"`];
+                    for (let i = 2; i < row.cells.length; i++) {
+                        const cell = row.cells[i];
+                        const input = cell.querySelector('.data-value');
+                        csvRow.push(input ? input.value : '');
+                    }
+                    csvContent += csvRow.join(',') + '\n';
+                });
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', `respuestas_ejemplo.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            populateTable();
+            const firstCell = tableBody.querySelector('td[data-type]');
+            if (firstCell) setActiveCell(firstCell);
+            document.getElementById('download-csv-btn').addEventListener('click', downloadCSV);
+        }
+    </script>
+</body>
+</html>
