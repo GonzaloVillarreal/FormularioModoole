@@ -656,11 +656,11 @@
                     <button id="prev-student-btn" class="nav-btn" title="Estudiante Anterior">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
-                        </svg>
+                    </svg>
                     </button>
                     <button id="next-student-btn" class="nav-btn" title="Siguiente Estudiante">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 010 1.414l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                         </svg>
                     </button>
                 </div>
@@ -709,7 +709,7 @@
                 <button id="scroll-right-btn" class="scroll-nav-btn" title="Desplazar Derecha">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                    </svg>
+                        </svg>
                 </button>
             </div>
 
@@ -1171,7 +1171,8 @@
                         if (cell.dataset.type === 'alt') {
                             cell.innerHTML = `<input type="hidden" class="data-value"><div class="alt-group"><span class="omission-mark" style="display: none;">O</span><div class="alt-btn" data-value="A">A</div><div class="alt-btn" data-value="B">B</div><div class="alt-btn" data-value="C">C</div></div>`;
                         } else {
-                            cell.innerHTML = `<input type="number" min="0" max="5" class="score-input data-value">`;
+                            // MODIFICACIÓN: min y max para preguntas de tipo "score"
+                            cell.innerHTML = `<input type="number" min="0" max="1" class="score-input data-value">`;
                         }
                         row.appendChild(cell);
                     }
@@ -1182,9 +1183,14 @@
             function advanceToNextCell(cell) {
                 if (!cell) return null;
                 let nextCell = cell.nextElementSibling;
+                // Skip RUT column if it's the next one
+                if (nextCell && nextCell.classList.contains('rut-cell')) {
+                    nextCell = nextCell.nextElementSibling;
+                }
                 if (nextCell && nextCell.dataset.type) return nextCell;
                 
                 const nextRow = cell.parentElement.nextElementSibling;
+                // If there's a next row, get its first data cell (P1)
                 return nextRow ? nextRow.querySelector('td[data-type]') : null;
             }
             
@@ -1202,7 +1208,8 @@
                 }
             }
 
-            function handleResponse(cell, response) {
+            // MODIFICACIÓN: Función para manejar la entrada de respuestas de tipo "alternativa"
+            function handleAltResponse(cell, response) {
                 if (!cell || cell.dataset.type !== 'alt') return cell;
                 resetCell(cell);
                 cell.querySelector('input.data-value').value = response;
@@ -1219,6 +1226,31 @@
                 const questionNumber = cell.cellIndex - 1;
                 if (studentData[studentIndex]) {
                     saveResponseToFirebase(studentData[studentIndex].id, questionNumber, response);
+                }
+
+                return advanceToNextCell(cell);
+            }
+
+            // MODIFICACIÓN: Función para manejar la entrada de respuestas de tipo "puntaje" (0 o 1)
+            function handleScoreResponse(cell, value) {
+                if (!cell || cell.dataset.type !== 'score') return cell;
+                
+                const inputElement = cell.querySelector('.data-value');
+                if (!inputElement) return cell;
+
+                const numericValue = parseInt(value);
+                if (isNaN(numericValue) || (numericValue !== 0 && numericValue !== 1)) {
+                    // Si el valor no es 0 o 1, limpiar y no guardar
+                    inputElement.value = '';
+                    return cell; // No avanzar si la entrada es inválida
+                }
+
+                inputElement.value = numericValue;
+                
+                const studentIndex = cell.parentElement.rowIndex - 1;
+                const questionNumber = cell.cellIndex - 1;
+                if (studentData[studentIndex]) {
+                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, numericValue.toString());
                 }
 
                 return advanceToNextCell(cell);
@@ -1282,21 +1314,125 @@
                 
                 setActiveCell(cell);
                 
-                if (e.target.classList.contains('alt-btn')) {
+                if (cell.dataset.type === 'alt' && e.target.classList.contains('alt-btn')) {
                     const clickedButton = e.target;
                     const isSelected = clickedButton.classList.contains('selected');
-                    const newActiveCell = handleResponse(cell, isSelected ? 'O' : clickedButton.dataset.value);
+                    const newActiveCell = handleAltResponse(cell, isSelected ? 'O' : clickedButton.dataset.value);
                     setActiveCell(newActiveCell);
-                } else if (cell.querySelector('.omission-mark')?.style.display === 'block') {
+                } else if (cell.dataset.type === 'alt' && cell.querySelector('.omission-mark')?.style.display === 'block') {
+                    // Si se hace click en una celda de alternativa que está en omisión, la resetea
                     const studentIndex = cell.parentElement.rowIndex - 1;
                     const questionNumber = cell.cellIndex - 1;
                     saveResponseToFirebase(studentData[studentIndex].id, questionNumber, '');
                     setActiveCell(resetCell(cell));
                 }
             });
+
+            // MODIFICACIÓN: Event listener para los inputs de tipo "score" para validar 0 o 1
+            tableBody.addEventListener('input', function(e) {
+                const inputElement = e.target.closest('.score-input');
+                if (inputElement) {
+                    const cell = inputElement.closest('td[data-type="score"]');
+                    if (cell) {
+                        // Asegurarse de que el valor sea 0 o 1
+                        const value = inputElement.value;
+                        if (value !== '' && value !== '0' && value !== '1') {
+                            inputElement.value = ''; // Limpiar si no es 0 o 1
+                            showErrorMessage('Solo se permite "0" o "1" para esta pregunta.');
+                        } else {
+                            // Guardar en Firebase solo si es 0 o 1
+                            if (value === '0' || value === '1') {
+                                const studentIndex = cell.parentElement.rowIndex - 1;
+                                const questionNumber = cell.cellIndex - 1;
+                                if (studentData[studentIndex]) {
+                                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
             
             const terminalInput = document.getElementById('terminal-input');
             const terminalFeedback = document.getElementById('terminal-feedback');
+            const terminalVisualFeedback = document.getElementById('terminal-visual-feedback');
+
+            // Nuevo: Event listener para el feedback visual en tiempo real
+            terminalInput.addEventListener('input', () => {
+                const inputValue = terminalInput.value.toUpperCase();
+                terminalVisualFeedback.innerHTML = ''; // Limpiar feedback anterior
+                terminalFeedback.textContent = ''; // Limpiar mensaje de error anterior
+                
+                if (!activeCell) {
+                    terminalVisualFeedback.innerHTML = '<span class="invalid-char">⚠️ No hay celda activa</span>';
+                    terminalFeedback.textContent = 'Selecciona una celda en la tabla para ingresar respuestas.';
+                    return;
+                }
+
+                let hasError = false;
+                let tempCell = activeCell; // Start simulation from activeCell
+
+                for (let i = 0; i < inputValue.length; i++) {
+                    const char = inputValue[i];
+                    let charSpan = document.createElement('span');
+                    charSpan.textContent = char;
+
+                    // DEBUG LOG:
+                    console.log(`--- Input Event Debug ---`);
+                    console.log(`Char: '${char}' (index ${i})`);
+                    console.log(`Current tempCell (simulated):`, tempCell);
+                    if (tempCell) {
+                        console.log(`tempCell.cellIndex: ${tempCell.cellIndex}`);
+                        console.log(`tempCell.dataset.type: ${tempCell.dataset.type}`);
+                    } else {
+                        console.log(`tempCell is null/undefined. Ran out of cells.`);
+                    }
+                    console.log(`-------------------------`);
+
+                    if (!tempCell) { // Ran out of cells to simulate
+                        charSpan.classList.add('invalid-char');
+                        terminalFeedback.textContent = `Error: Demasiados caracteres para las celdas disponibles.`;
+                        hasError = true;
+                        break;
+                    }
+                    
+                    // Handle '*' as a special case first
+                    if (char === '*') {
+                        charSpan.classList.add('omitted-char'); // Neutral for '*'
+                        // Do not advance tempCell for '*' as it's a modifier, not a response
+                        terminalVisualFeedback.appendChild(charSpan);
+                        continue; // Move to the next character in input value
+                    }
+
+                    if (tempCell.dataset.type === 'alt') {
+                        if (['A', 'B', 'C', 'O'].includes(char)) { // 'O' is also valid for alt
+                            charSpan.classList.add('valid-char');
+                            tempCell = advanceToNextCell(tempCell); // Simulate advance
+                        } else {
+                            charSpan.classList.add('invalid-char');
+                            terminalFeedback.textContent = `Error: Carácter inválido '${char}'. Se espera A, B, C u O.`;
+                            hasError = true;
+                            // Do not advance tempCell on error, so subsequent chars are also validated against this errored cell type
+                        }
+                    } else if (tempCell.dataset.type === 'score') {
+                        if (['0', '1'].includes(char)) {
+                            charSpan.classList.add('valid-char');
+                            tempCell = advanceToNextCell(tempCell); // Simulate advance
+                        } else {
+                            charSpan.classList.add('invalid-char');
+                            terminalFeedback.textContent = `Error: Carácter inválido '${char}'. Se espera 0 o 1.`;
+                            hasError = true;
+                            // Do not advance tempCell on error
+                        }
+                    }
+                    terminalVisualFeedback.appendChild(charSpan);
+                }
+                // If no errors, clear the feedback message
+                if (!hasError && inputValue.length > 0) {
+                    terminalFeedback.textContent = '';
+                }
+            });
+
 
             function processTerminalInput() {
                 if (!activeCell) {
@@ -1304,22 +1440,43 @@
                     return;
                 }
                 
-                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-CO])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+                // Expandir la entrada antes de procesar
+                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-CO01])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
                 let currentCell = activeCell;
                 let processedCount = 0;
+                let errorDetected = false;
 
                 for (const char of expandedInput) {
                     if (!currentCell) break;
-                    if (currentCell.dataset.type === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) {
-                        currentCell = handleResponse(currentCell, char);
-                        processedCount++;
+
+                    if (currentCell.dataset.type === 'alt') {
+                        if (['A', 'B', 'C', 'O'].includes(char)) {
+                            currentCell = handleAltResponse(currentCell, char);
+                            processedCount++;
+                        } else {
+                            terminalFeedback.textContent = `Error: Carácter inválido '${char}' para pregunta de alternativa. Se espera A, B, C u O.`;
+                            errorDetected = true;
+                            break; // Detener el procesamiento si hay un error
+                        }
+                    } else if (currentCell.dataset.type === 'score') {
+                        // MODIFICACIÓN: Lógica para procesar entradas de tipo "score" (0 o 1)
+                        if (['0', '1'].includes(char)) {
+                            currentCell = handleScoreResponse(currentCell, char);
+                            processedCount++;
+                        } else {
+                            terminalFeedback.textContent = `Error: Carácter inválido '${char}' para pregunta de puntaje (solo 0 o 1).`;
+                            errorDetected = true;
+                            break; // Detener el procesamiento si hay un error
+                        }
                     }
                 }
                 
                 setActiveCell(currentCell);
-                terminalFeedback.textContent = `✓ ${processedCount} respuestas procesadas.`;
+                if (!errorDetected) {
+                    terminalFeedback.textContent = `✓ ${processedCount} respuestas procesadas.`;
+                }
                 terminalInput.value = '';
-                terminalVisualFeedback.innerHTML = '';
+                terminalVisualFeedback.innerHTML = ''; // Limpiar el feedback visual después de procesar
                 setTimeout(() => terminalFeedback.textContent = '', 4000);
             }
 
