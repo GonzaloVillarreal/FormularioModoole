@@ -243,13 +243,14 @@
         .table-wrapper {
             border-radius: 0.5rem;
             border: 1px solid #e5e7eb;
-            overflow: hidden;
+            /* REMOVED: overflow: hidden; - Can interfere with sticky positioning */
         }
 
         .table-container {
             width: 100%;
-            overflow: auto;
+            overflow: auto; /* This creates the scrolling context */
             max-height: calc(100vh - 400px);
+            border-radius: 0.5rem; /* Apply border-radius here if table-wrapper no longer has overflow:hidden */
         }
 
         table {
@@ -268,14 +269,26 @@
             letter-spacing: 0.05em;
             position: sticky;
             top: 0;
-            z-index: 10;
+            /* z-index for header cells - ensure it's higher than data cells */
+            z-index: 15; /* Adjusted: General th z-index, higher than sticky data cells */
         }
 
+        /* General sticky column properties */
         .sticky-col {
             position: sticky;
             left: 0;
-            z-index: 20;
-            background: #f3f4f6;
+        }
+
+        /* Specific styling for the sticky header cell */
+        th.sticky-col {
+            background: #f3f4f6; /* Header background */
+            z-index: 30; /* Highest z-index for the main sticky header */
+        }
+
+        /* Specific styling for the sticky data cells */
+        td.sticky-col {
+            background: white; /* Body cell background */
+            z-index: 10; /* Lower than general th, higher than normal td */
         }
 
         .student-name-col {
@@ -301,7 +314,7 @@
         }
 
         .student-cell {
-            background: white;
+            /* background is now handled by td.sticky-col or .active-row */
             text-align: left;
             font-weight: 500;
             color: #1f2937;
@@ -313,6 +326,13 @@
 
         .active-row {
             background-color: #fef3c7 !important;
+        }
+        
+        /* Ensure active row background applies to all cells within it, including sticky ones */
+        .active-row .student-cell,
+        .active-row .rut-cell,
+        .active-row td {
+            background-color: #fef3c7 !important; /* Apply active row color with high priority */
         }
 
         .active-cell {
@@ -621,6 +641,8 @@
             <div>
                 <div class="terminal-panel">
                     <h3 class="terminal-title">⚡ Terminal de Ingreso Rápido</h3>
+                    <!-- Nuevo: Indicador de pregunta actual -->
+                    <span id="current-question-indicator" style="font-size: 0.9em; color: #a7f3d0; margin-top: 0.5rem; display: block;"></span>
                     <div class="terminal-input-container">
                         <span class="terminal-prompt">$</span>
                         <span class="terminal-prompt">&gt;</span>
@@ -1146,6 +1168,22 @@
             const preguntas_3_alt = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19, 20];
             let activeCell = null;
 
+            // Función para actualizar el indicador de la pregunta actual en el terminal
+            function updateCurrentQuestionIndicator(cell = activeCell) {
+                const indicator = document.getElementById('current-question-indicator');
+                if (indicator && cell) {
+                    // cell.cellIndex es 0 para Nombre, 1 para RUT, 2 para P1, 3 para P2, etc.
+                    const questionNumber = cell.cellIndex - 1;
+                    if (questionNumber >= 1 && cell.dataset.type) { // Solo mostrar para P1 en adelante y si es una celda de pregunta
+                        indicator.textContent = `(Ingresando Pregunta P${questionNumber})`;
+                    } else {
+                        indicator.textContent = ''; // Limpiar si es columna de Nombre o RUT, o no es celda de pregunta
+                    }
+                } else if (indicator) {
+                    indicator.textContent = ''; // Limpiar si no hay celda activa
+                }
+            }
+
             function setActiveCell(cell) {
                 if (activeCell) {
                     activeCell.classList.remove('active-cell');
@@ -1156,8 +1194,10 @@
                     cell.parentElement.classList.add('active-row');
                     activeCell = cell;
                     cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                    updateCurrentQuestionIndicator(cell); // Actualizar indicador al cambiar la celda activa
                 } else {
                     activeCell = null;
+                    updateCurrentQuestionIndicator(null); // Limpiar indicador si no hay celda activa
                 }
             }
 
@@ -1366,71 +1406,77 @@
                 if (!activeCell) {
                     terminalVisualFeedback.innerHTML = '<span class="invalid-char">⚠️ No hay celda activa</span>';
                     terminalFeedback.textContent = 'Selecciona una celda en la tabla para ingresar respuestas.';
+                    updateCurrentQuestionIndicator(null); // Limpiar indicador
                     return;
                 }
 
                 let hasError = false;
-                let tempCell = activeCell; // Start simulation from activeCell
+                let simulatedCell = activeCell; // Iniciar simulación desde activeCell
+
+                // Actualizar indicador con la primera celda que recibirá la entrada
+                updateCurrentQuestionIndicator(simulatedCell);
 
                 for (let i = 0; i < inputValue.length; i++) {
                     const char = inputValue[i];
                     let charSpan = document.createElement('span');
                     charSpan.textContent = char;
 
-                    // DEBUG LOG:
-                    console.log(`--- Input Event Debug ---`);
-                    console.log(`Char: '${char}' (index ${i})`);
-                    console.log(`Current tempCell (simulated):`, tempCell);
-                    if (tempCell) {
-                        console.log(`tempCell.cellIndex: ${tempCell.cellIndex}`);
-                        console.log(`tempCell.dataset.type: ${tempCell.dataset.type}`);
-                    } else {
-                        console.log(`tempCell is null/undefined. Ran out of cells.`);
-                    }
-                    console.log(`-------------------------`);
-
-                    if (!tempCell) { // Ran out of cells to simulate
+                    // Si nos quedamos sin celdas para simular
+                    if (!simulatedCell) {
                         charSpan.classList.add('invalid-char');
                         terminalFeedback.textContent = `Error: Demasiados caracteres para las celdas disponibles.`;
                         hasError = true;
+                        terminalVisualFeedback.appendChild(charSpan); // Aún mostrar el carácter
+                        updateCurrentQuestionIndicator(null); // Limpiar indicador ya que estamos fuera de límites
                         break;
                     }
                     
-                    // Handle '*' as a special case first
+                    // Manejar '*' como un caso especial primero (es un modificador, no una respuesta)
                     if (char === '*') {
-                        charSpan.classList.add('omitted-char'); // Neutral for '*'
-                        // Do not advance tempCell for '*' as it's a modifier, not a response
+                        charSpan.classList.add('omitted-char'); // Estilo neutro para '*'
                         terminalVisualFeedback.appendChild(charSpan);
-                        continue; // Move to the next character in input value
+                        continue; // Mover al siguiente carácter en el valor de entrada, no avanzar simulatedCell
                     }
 
-                    if (tempCell.dataset.type === 'alt') {
-                        if (['A', 'B', 'C', 'O'].includes(char)) { // 'O' is also valid for alt
+                    // Validar carácter basándose en el tipo de la celda simulada actual
+                    if (simulatedCell.dataset.type === 'alt') {
+                        if (['A', 'B', 'C', 'O'].includes(char)) {
                             charSpan.classList.add('valid-char');
-                            tempCell = advanceToNextCell(tempCell); // Simulate advance
+                            // Avanzar simulatedCell solo si el carácter es una respuesta válida (no '*')
+                            simulatedCell = advanceToNextCell(simulatedCell);
                         } else {
                             charSpan.classList.add('invalid-char');
                             terminalFeedback.textContent = `Error: Carácter inválido '${char}'. Se espera A, B, C u O.`;
                             hasError = true;
-                            // Do not advance tempCell on error, so subsequent chars are also validated against this errored cell type
+                            // No avanzar simulatedCell en caso de error, para que los caracteres posteriores también se validen contra este tipo de celda con error
                         }
-                    } else if (tempCell.dataset.type === 'score') {
+                    } else if (simulatedCell.dataset.type === 'score') {
                         if (['0', '1'].includes(char)) {
                             charSpan.classList.add('valid-char');
-                            tempCell = advanceToNextCell(tempCell); // Simulate advance
+                            // Avanzar simulatedCell solo si el carácter es una respuesta válida (no '*')
+                            simulatedCell = advanceToNextCell(simulatedCell);
                         } else {
                             charSpan.classList.add('invalid-char');
                             terminalFeedback.textContent = `Error: Carácter inválido '${char}'. Se espera 0 o 1.`;
                             hasError = true;
-                            // Do not advance tempCell on error
+                            // No avanzar simulatedCell en caso de error
                         }
                     }
                     terminalVisualFeedback.appendChild(charSpan);
+
+                    // Después de procesar este carácter, actualizar el indicador para mostrar la *siguiente* celda esperada
+                    if (!hasError) {
+                        updateCurrentQuestionIndicator(simulatedCell);
+                    }
                 }
-                // If no errors, clear the feedback message
-                if (!hasError && inputValue.length > 0) {
-                    terminalFeedback.textContent = '';
+                
+                // Después del bucle, si no hubo error y la entrada no está vacía, el indicador ya muestra la siguiente celda.
+                // Si la entrada está vacía, asegurar que muestre la celda activa.
+                if (inputValue.length === 0) {
+                    updateCurrentQuestionIndicator(activeCell);
                 }
+                // Si hubo un error, el indicador debería permanecer en la celda donde ocurrió el error,
+                // lo cual se maneja dentro del bucle.
             });
 
 
@@ -1464,7 +1510,7 @@
                             currentCell = handleScoreResponse(currentCell, char);
                             processedCount++;
                         } else {
-                            terminalFeedback.textContent = `Error: Carácter inválido '${char}' para pregunta de puntaje (solo 0 o 1).`;
+                            terminalFeedback.textContent = `Error: Carácter inválido '${char}'. Se espera 0 o 1.`;
                             errorDetected = true;
                             break; // Detener el procesamiento si hay un error
                         }
