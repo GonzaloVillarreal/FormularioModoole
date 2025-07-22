@@ -4,136 +4,1393 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingreso de Respuestas (Versión Simple)</title>
-    <!-- Carga de Tailwind CSS para un diseño moderno -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Estilos adicionales para mejorar la experiencia */
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
-        .table-container { width: 100%; overflow-x: auto; }
-        input[type="number"] { width: 60px; padding: 4px 8px; border-radius: 6px; border: 1px solid #d1d5db; text-align: center; }
-        .download-btn, .g-btn { font-weight: bold; padding: 12px 24px; border-radius: 8px; cursor: pointer; transition: background-color 0.3s; border: none; }
-        .download-btn { background-color: #16a34a; color: white; }
-        .download-btn:hover { background-color: #15803d; }
-        .g-btn { background-color: #4285F4; color: white; }
-        .g-btn:hover { background-color: #3367D6; }
-        .g-btn:disabled { background-color: #9e9e9e; cursor: not-allowed; }
-        .alt-group { display: flex; justify-content: center; gap: 4px; }
-        .alt-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid #ccc; border-radius: 50%; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; background-color: #fff; transition: all 0.2s; }
-        .alt-btn:hover { background-color: #f0f0f0; }
-        .alt-btn.selected { background-color: #3b82f6; color: white; border-color: #3b82f6; }
-        .active-row { background-color: #fef9c3 !important; }
-        .active-cell { background-color: #fdba74 !important; outline: 2px solid #f97316; outline-offset: -2px; }
-        #voice-btn.listening { background-color: #ef4444; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- CORRECCIÓN: Se añaden los scripts del SDK de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            color: #6b7280;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .terminal-panel {
+            background: #374151;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .terminal-title {
+            color: #10b981;
+            font-family: 'Courier New', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .terminal-input-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .terminal-prompt {
+            color: #10b981;
+            font-family: 'Courier New', monospace;
+            font-size: 1.125rem;
+        }
+
+        .terminal-input {
+            flex: 1;
+            background: #1f2937;
+            border: 2px solid #4b5563;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #10b981;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .terminal-input:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .terminal-input::placeholder {
+            color: #9ca3af;
+        }
+
+        .voice-panel {
+            background: #1e40af;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .voice-title {
+            color: #06b6d4;
+            font-family: 'Courier New', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .voice-input-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .voice-btn {
+            background: #06b6d4;
+            border: none;
+            border-radius: 50%;
+            width: 3rem;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .voice-btn:hover {
+            background: #0891b2;
+        }
+
+        .voice-btn.listening {
+            background: #ef4444;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .voice-feedback {
+            flex: 1;
+            background: #1e3a8a;
+            border: 2px solid #3730a3;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            color: #06b6d4;
+            font-family: 'Courier New', monospace;
+            min-height: 3rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .feedback-area {
+            margin-top: 0.5rem;
+        }
+
+        .terminal-visual-feedback {
+            background: transparent;
+            border-radius: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            min-height: 1.5rem;
+        }
+
+        .terminal-visual-feedback:not(:empty) {
+            background: #1f2937;
+        }
+
+        .terminal-feedback {
+            color: #d97706;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            height: 1.25rem;
+            padding: 0 0.5rem;
+        }
+
+        .valid-char { color: #10b981; }
+        .omitted-char { color: #9ca3af; }
+        .invalid-char { color: #ef4444; text-decoration: underline; font-weight: bold; }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .nav-btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            border: 1px solid rgba(107, 114, 128, 0.2);
+            background: rgba(107, 114, 128, 0.1);
+            color: #4b5563;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(107, 114, 128, 0.2);
+            color: #1f2937;
+        }
+
+        .nav-btn:disabled {
+            background: rgba(209, 213, 219, 0.1);
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .table-wrapper {
+            border-radius: 0.5rem;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .table-container {
+            width: 100%;
+            overflow: auto;
+            max-height: calc(100vh - 400px);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f3f4f6;
+            padding: 0.75rem 1rem;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background: #f3f4f6;
+        }
+
+        .student-name-col {
+            text-align: left;
+            min-width: 250px;
+        }
+
+        .blue-header {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .green-header {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        td {
+            padding: 0.5rem 1rem;
+            border-bottom: 1px solid #f3f4f6;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+
+        .student-cell {
+            background: white;
+            text-align: left;
+            font-weight: 500;
+            color: #1f2937;
+        }
+
+        .rut-cell {
+            color: #6b7280;
+        }
+
+        .active-row {
+            background-color: #fef3c7 !important;
+        }
+
+        .active-cell {
+            background-color: #fed7aa !important;
+            outline: 2px solid #f97316;
+            outline-offset: -2px;
+        }
+
+        .alt-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.25rem;
+            position: relative;
+            min-height: 2rem;
+        }
+
+        .alt-btn {
+            width: 1.75rem;
+            height: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #d1d5db;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6b7280;
+            background: white;
+            transition: all 0.2s ease;
+        }
+
+        .alt-btn:hover {
+            background: #f9fafb;
+        }
+
+        .alt-btn.selected {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .omission-mark {
+            position: absolute;
+            font-size: 1.25rem;
+            color: #9ca3af;
+            font-weight: bold;
+            z-index: 5;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .score-input {
+            width: 4rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+            text-align: center;
+        }
+
+        .download-section {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .download-btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: #15803d;
+        }
+
+        .scroll-nav {
+            position: sticky;
+            bottom: 0;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(248, 249, 250, 0.9);
+            backdrop-filter: blur(4px);
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .scroll-nav-btn {
+            background: white;
+            color: #4b5563;
+            border-radius: 50%;
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border: 1px solid #d1d5db;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+
+        .scroll-nav-btn:hover {
+            background: #f9fafb;
+        }
+
+        .scroll-nav-btn:disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .success-message {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-dot {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        .auto-save-indicator {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(16, 185, 129, 0.9);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .auto-save-indicator.show {
+            opacity: 1;
+        }
+    </style>
 </head>
-<body class="p-4 md:p-8">
-
-    <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-lg">
-        <header class="mb-6 border-b pb-4">
-            <h1 class="text-3xl font-bold text-gray-800">Formulario de Ingreso Híbrido de Respuestas</h1>
-            <p id="course-title" class="text-lg text-gray-600 mt-1">Curso de Ejemplo: 2º Básico A</p>
-        </header>
-
-        <!-- SECCIÓN DE CONFIGURACIÓN Y CARGA DE DATOS (COMENTADA) -->
-        <!-- 
-        <div class="bg-gray-100 p-4 rounded-lg mb-8 border">
-            <h3 class="font-bold text-lg mb-2">1. Cargar Datos del Curso</h3>
-            <p class="text-sm text-gray-600 mb-4">Haz clic para iniciar sesión con tu cuenta de Google y cargar la lista de estudiantes desde la Hoja de Cálculo configurada para tu colegio.</p>
-            <div class="flex items-center gap-4">
-                <button id="authorize_button" class="g-btn">Cargar Datos desde Google</button>
-                <button id="signout_button" class="g-btn" style="display: none; background-color: #db4437;">Cerrar Sesión de Google</button>
-                <div id="loading-feedback" class="font-mono text-gray-700"></div>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Sistema de Ingreso de Respuestas</h1>
+            <p id="course-info">Cargando información del curso...</p>
+            
+            <div class="connection-status">
+                <div class="status-dot" id="sheets-status"></div>
+                <span>Google Sheets</span>
+                <div class="status-dot" id="firebase-status"></div>
+                <span>Firebase</span>
             </div>
         </div>
-        -->
 
-        <main id="main-content">
-             <!-- SECCIÓN DE CONTROLES DE INGRESO RÁPIDO -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <!-- SECCIÓN DE INGRESO TIPO TERMINAL -->
-                <div class="bg-gray-800 text-white rounded-lg p-4 shadow-md">
-                    <h3 class="text-lg font-bold text-green-400 font-mono">⚡ Terminal de Ingreso Rápido</h3>
-                    <div class="flex items-center gap-4 mt-3">
-                        <span class="font-mono text-green-400">$ &gt;</span>
-                        <input type="text" id="terminal-input" class="flex-grow bg-gray-900 text-green-300 font-mono p-2 rounded-md border border-gray-600 focus:ring-2 focus:ring-green-400 focus:outline-none" placeholder="Escribe: AABBC o A*5...">
+        <div class="controls-grid">
+            <!-- Terminal Panel -->
+            <div>
+                <div class="terminal-panel">
+                    <h3 class="terminal-title">⚡ Terminal de Ingreso Rápido</h3>
+                    <div class="terminal-input-container">
+                        <span class="terminal-prompt">$</span>
+                        <span class="terminal-prompt">&gt;</span>
+                        <input type="text" id="terminal-input" class="terminal-input" placeholder="Escribe respuestas..." autocomplete="off">
                     </div>
-                     <div id="terminal-feedback" class="text-yellow-400 text-sm mt-2 font-mono h-4"></div>
                 </div>
+                <div class="feedback-area">
+                    <div id="terminal-visual-feedback" class="terminal-visual-feedback"></div>
+                    <div id="terminal-feedback" class="terminal-feedback"></div>
+                </div>
+            </div>
 
-                <!-- SECCIÓN DE INGRESO POR VOZ -->
-                <div class="bg-blue-800 text-white rounded-lg p-4 shadow-md">
-                     <h3 class="text-lg font-bold text-cyan-300 font-mono">🎤 Comando por Voz</h3>
-                     <div class="flex items-center gap-4 mt-3">
-                        <button id="voice-btn" class="bg-cyan-500 hover:bg-cyan-600 text-white font-bold p-3 rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            <!-- Voice Panel -->
+            <div>
+                <div class="voice-panel">
+                    <h3 class="voice-title">🎤 Comando por Voz</h3>
+                    <div class="voice-input-container">
+                        <button id="voice-btn" class="voice-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
                         </button>
-                        <div id="voice-feedback" class="flex-grow bg-blue-900 text-cyan-300 font-mono p-2 rounded-md border border-blue-600 h-10"></div>
-                     </div>
+                        <div id="voice-feedback" class="voice-feedback">Micrófono desactivado.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <main>
+            <div class="section-header">
+                <h2 class="section-title">Respuestas de Estudiantes</h2>
+                <div class="nav-controls">
+                    <button id="prev-student-btn" class="nav-btn" title="Estudiante Anterior">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <button id="next-student-btn" class="nav-btn" title="Siguiente Estudiante">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <div class="table-container rounded-lg border">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th scope="col" class="sticky left-0 bg-gray-100 px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Estudiante</th>
-                            <th scope="col" class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">RUT</th>
-                            <!-- Generación de encabezados de preguntas -->
-                            <script>
-                                const preguntas_3_alt = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19, 20];
-                                for (let i = 1; i <= 20; i++) {
-                                    const colorClass = preguntas_3_alt.includes(i) ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800';
-                                    document.write(`<th scope="col" class="px-4 py-3 text-center text-xs font-bold ${colorClass} uppercase tracking-wider">P${i}</th>`);
-                                }
-                            </script>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200" id="students-table-body"></tbody>
-                </table>
+            <div class="table-wrapper">
+                <div class="table-container" id="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="sticky-col student-name-col">ESTUDIANTE</th>
+                                <th>RUT</th>
+                                <th class="blue-header">P1</th>
+                                <th class="blue-header">P2</th>
+                                <th class="blue-header">P3</th>
+                                <th class="green-header">P4</th>
+                                <th class="green-header">P5</th>
+                                <th class="blue-header">P6</th>
+                                <th class="blue-header">P7</th>
+                                <th class="blue-header">P8</th>
+                                <th class="blue-header">P9</th>
+                                <th class="blue-header">P10</th>
+                                <th class="blue-header">P11</th>
+                                <th class="blue-header">P12</th>
+                                <th class="blue-header">P13</th>
+                                <th class="blue-header">P14</th>
+                                <th class="green-header">P15</th>
+                                <th class="blue-header">P16</th>
+                                <th class="green-header">P17</th>
+                                <th class="green-header">P18</th>
+                                <th class="blue-header">P19</th>
+                                <th class="blue-header">P20</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body"></tbody>
+                    </table>
+                </div>
             </div>
 
-            <footer class="mt-8 text-center">
+            <div id="scroll-nav" class="scroll-nav">
+                <button id="scroll-left-btn" class="scroll-nav-btn" title="Desplazar Izquierda">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                <button id="scroll-right-btn" class="scroll-nav-btn" title="Desplazar Derecha">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="download-section">
                 <button id="download-csv-btn" class="download-btn">
                     Generar y Descargar CSV
                 </button>
-            </footer>
+                <button id="sync-firebase-btn" class="download-btn" style="background: #3b82f6; margin-left: 1rem;">
+                    Sincronizar con Firebase
+                </button>
+            </div>
         </main>
     </div>
 
-    <!-- Google API Client Library (COMENTADO) -->
-    <!-- 
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p id="loading-message">Cargando datos...</p>
+        </div>
+    </div>
+
+    <!-- Auto-save Indicator -->
+    <div id="auto-save-indicator" class="auto-save-indicator">
+        Guardado automáticamente
+    </div>
+
     <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client"></script>
-    -->
 
     <script>
-        // --- LÓGICA DE LA APLICACIÓN (VERSIÓN SIMPLE) ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // DATOS DE ESTUDIANTES DE EJEMPLO (HARDCODED)
-            const studentData = [
-                { name: "Maximiliano Andrés Aceitón Hernández", rut: "26045838-8" },
-                { name: "Constanza Andrea Acevedo Rojas", rut: "25495346-6" },
-                { name: "Víctor Patricio Aedo Becerra", rut: "26114883-8" },
-                { name: "Antonia Sofía Avendaño Jiménez", rut: "25964073-3" },
-                { name: "Martin Antonio Blanca Gutiérrez", rut: "25926919-9" },
-                { name: "Kataleia Francesca Castro Villanueva", rut: "26095657-4" },
-                { name: "Lía Isidora Cleary Villarroel", rut: "25779581-0" },
-                { name: "Luana Valentina Cuyuche Del Carpio", rut: "25839768-1" },
-                { name: "Gaspar Ignacio Doren Parada", rut: "25982072-3" },
-                { name: "Mateo de Jesús Herrera Ferrer", rut: "26731519-1" },
-                { name: "Tomas Alonso Herrera González", rut: "25918404-5" },
-                { name: "Mía Alejandra Miqueles Jaque", rut: "25796362-4" },
-                { name: "Natalia Andreina Montes de Oca Altuve", rut: "26907785-9" },
-                { name: "Jacobo Montoya Martinez", rut: "100756019-9" },
-                { name: "Emilio Ezequiel Ollarce Jeria", rut: "26063479-8" },
-                { name: "Atenea Orellana Romeo", rut: "26134235-9" },
-                { name: "Dante Alejandro Páez Moya", rut: "25730068-4" },
-            ];
+        // ========================================
+        // CONFIGURACIÓN HÍBRIDA - FUNCIONA SIN APIS EXTERNAS
+        // ========================================
+        
+        // Datos reales de tu Google Sheets integrados directamente
+        const DATOS_GUILLERMO_ZANARTU = {
+            '2basico-a': [
+                { name: "ALEXANDRA GABILY LILLO BRAVO", rut: "25387012-5", id: "253870125" },
+                { name: "CHRISTOPHER JAVIER ALDANA SOSA", rut: "100619917-4", id: "1006199174" },
+                { name: "JULIÁN ESTEBAN AHUMADA VILLAGRA", rut: "25834811-7", id: "258348117" },
+                { name: "FERNANDA VICTORIA ALICANDO GUERRA", rut: "26856761-5", id: "268567615" },
+                { name: "VICENTE ANTONIO BRUCE ECHEVERRÍA", rut: "25811044-7", id: "258110447" },
+                { name: "KILLIAN BYAKKO ELGUETA VARGAS", rut: "25925662-3", id: "259256623" },
+                { name: "YAZURI YAMILUZ ESPINOZA JARA", rut: "25919410-5", id: "259194105" },
+                { name: "KARIM ABBUD SAMIR FUENZALIDA DANIEL", rut: "25761644-4", id: "257616444" },
+                { name: "SANTI ALESSANDRO RODRÍGUEZ PARDO", rut: "26168348-2", id: "261683482" },
+                { name: "NOAH JEREMIAS RON PINEDA", rut: "100440604-0", id: "1004406040" },
+                { name: "JOSEFA ISIDORA VEGA BARROS", rut: "25922267-2", id: "259222672" },
+                { name: "ANTONIA DE LOURDES VENEGAS FLORES", rut: "26090880-4", id: "260908804" },
+                { name: "BALTAZAR LEÓN GONZÁLEZ GONZÁLEZ", rut: "26051393-1", id: "260513931" },
+                { name: "VICENTE ALONSO MALIO NAVARRETE", rut: "26047206-2", id: "260472062" },
+                { name: "ERIANYELY YISELL MÁRQUEZ GONZÁLEZ", rut: "28389623-4", id: "283896234" },
+                { name: "FLORENCIA ISIDORA MONTECINO MONTECINO", rut: "25770714-8", id: "257707148" }
+                // Aquí puedes agregar los estudiantes restantes hasta completar los 34
+            ],
+            '2basico-b': [
+                // Agrega aquí los estudiantes de 2° básico B
+                { name: "Estudiante 2B - 1", rut: "11111111-1", id: "111111111" },
+                { name: "Estudiante 2B - 2", rut: "22222222-2", id: "222222222" }
+                // ... agregar resto de estudiantes de 2°B
+            ]
+        };
+
+        // Configuración de Firebase (mantenemos para cuando funcione)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBNlYH01_9Hc...",
+            authDomain: "sistema-respuestas-colegio.firebaseapp.com",
+            projectId: "sistema-respuestas-colegio",
+            storageBucket: "sistema-respuestas-colegio.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+
+        // API Key de Google Sheets (mantenemos para cuando funcione)
+        const GOOGLE_API_KEY = 'AIzaSyDcR4qt0Kc8OClP0pCIx3ggsBS1NKQoX-o';
+        const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+        
+        // Variables globales
+        let db;
+        let isFirebaseConnected = false;
+        let isGoogleSheetsConnected = false;
+        let currentColegio = '';
+        let currentCurso = '';
+        let studentData = [];
+        let autoSaveEnabled = true;
+
+        // ========================================
+        // MODO DEMO PARA TESTING
+        // ========================================
+        
+        const DEMO_MODE = false; // ¡ACTIVANDO MODO REAL con fetch directo!
+        
+        if (DEMO_MODE) {
+            console.log('🚀 MODO DEMO ACTIVADO - Simulando conexiones');
+        } else {
+            console.log('🔥 MODO REAL ACTIVADO - Conectando a Firebase');
+        }
+
+        // ========================================
+        // INICIALIZACIÓN DE CONEXIONES
+        // ========================================
+        
+        async function initializeConnections() {
+            showLoading('Inicializando conexiones...');
             
-            initializeTable(studentData);
+            try {
+                // Detectar contexto desde Moodle
+                const contexto = detectarContextoMoodle();
+                currentColegio = contexto.colegio;
+                currentCurso = contexto.curso;
+                
+                console.log('🎯 Contexto detectado:', { colegio: currentColegio, curso: currentCurso });
+                
+                document.getElementById('course-info').textContent = 
+                    `${getNombreAmigableColegio(currentColegio)} | Curso: ${currentCurso.toUpperCase()}`;
+
+                // Inicializar Firebase
+                await initializeFirebase();
+                
+                // Inicializar Google Sheets API
+                await initializeGoogleSheets();
+                
+                // Cargar datos de estudiantes
+                await loadStudentData();
+                
+                hideLoading();
+                showSuccessMessage('Conexiones establecidas correctamente');
+                
+            } catch (error) {
+                hideLoading();
+                showErrorMessage('Error al inicializar: ' + error.message);
+            }
+        }
+
+        function simulateExistingResponses() {
+            // Simular algunas respuestas guardadas para demo
+            const demoResponses = {
+                '260458388_P1': 'A',
+                '260458388_P2': 'B', 
+                '254953466_P1': 'C',
+                '254953466_P3': 'A',
+                '261148838_P1': 'B',
+                '261148838_P2': 'C'
+            };
+            
+            console.log('🎭 Aplicando respuestas simuladas:', demoResponses);
+            applyExistingResponses(demoResponses);
+        }
+
+        async function initializeFirebase() {
+            try {
+                // **CORRECCIÓN: Añadir validación de placeholders en la configuración**
+                if (firebaseConfig.apiKey.startsWith("AIzaSy") && firebaseConfig.apiKey.includes("...")) {
+                    console.warn('⚠️ Usando configuración de Firebase de ejemplo. La conexión no se intentará.');
+                    updateConnectionStatus('firebase-status', false);
+                    isFirebaseConnected = false;
+                    return; // Salir de la función para evitar el error de conexión
+                }
+
+                if (DEMO_MODE) {
+                    // Simular conexión exitosa en modo demo
+                    console.log('🔥 Simulando conexión a Firebase...');
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    isFirebaseConnected = true;
+                    updateConnectionStatus('firebase-status', true);
+                    console.log('✅ Firebase conectado (DEMO)');
+                    return;
+                }
+
+                // Verificar que Firebase esté disponible
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase SDK no está cargado. Verifica la conexión a internet.');
+                }
+
+                console.log('🔥 Inicializando Firebase...');
+                
+                // Verificar si ya está inicializado
+                if (firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
+                    console.log('📱 Firebase App inicializada');
+                } else {
+                    console.log('📱 Firebase App ya estaba inicializada');
+                }
+                
+                db = firebase.firestore();
+                console.log('💾 Firestore Database conectada');
+                
+                // Probar conexión con una operación simple
+                await db.enableNetwork();
+                console.log('🌐 Red de Firestore habilitada');
+                
+                isFirebaseConnected = true;
+                updateConnectionStatus('firebase-status', true);
+                console.log('✅ Firebase conectado exitosamente (REAL)');
+                
+            } catch (error) {
+                console.error('❌ Error detallado inicializando Firebase:', error);
+                updateConnectionStatus('firebase-status', false);
+                isFirebaseConnected = false;
+                console.log('⚠️ Firebase no disponible, continuando sin guardado automático');
+            }
+        }
+
+        async function initializeGoogleSheets() {
+            try {
+                if (DEMO_MODE) {
+                    console.log('📊 Simulando conexión a Google Sheets...');
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                    isGoogleSheetsConnected = true;
+                    updateConnectionStatus('sheets-status', true);
+                    console.log('✅ Google Sheets conectado (DEMO)');
+                    return;
+                }
+
+                console.log('📊 Inicializando Google Sheets API en modo REAL...');
+                console.log('🔑 API Key:', GOOGLE_API_KEY.substring(0, 20) + '...');
+
+                // Verificar que gapi esté disponible
+                if (typeof gapi === 'undefined') {
+                    console.error('❌ Google API (gapi) no está disponible');
+                    throw new Error('Google API no está disponible - verifica la conexión a internet');
+                }
+
+                console.log('⏳ Cargando cliente de Google API...');
+                await new Promise((resolve, reject) => {
+                    gapi.load('client', {
+                        callback: resolve,
+                        onerror: reject
+                    });
+                });
+                
+                console.log('🔧 Inicializando cliente con API Key...');
+                await gapi.client.init({
+                    apiKey: GOOGLE_API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                
+                console.log('🧪 Probando conexión con hoja de Guillermo Zañartu...');
+                // Probar conexión con tu hoja específica
+                const testResponse = await gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU',
+                    range: '2basico-a!A1:B1',
+                });
+                
+                console.log('✅ Respuesta de prueba recibida:', testResponse);
+                
+                isGoogleSheetsConnected = true;
+                updateConnectionStatus('sheets-status', true);
+                console.log('✅ Google Sheets conectado exitosamente (REAL)');
+                
+            } catch (error) {
+                console.error('❌ Error detallado inicializando Google Sheets:', error);
+                console.error('📋 Detalles del error:', {
+                    message: error.message,
+                    status: error.status,
+                    code: error.code
+                });
+                
+                updateConnectionStatus('sheets-status', false);
+                
+                if (!DEMO_MODE) {
+                    // En modo real, mostrar error específico pero continuar
+                    console.log('⚠️ Google Sheets no disponible, usando datos de fallback');
+                    isGoogleSheetsConnected = false;
+                } else {
+                    console.log('⚠️ Error en Google Sheets pero continuando en modo DEMO');
+                    isGoogleSheetsConnected = true;
+                    updateConnectionStatus('sheets-status', true);
+                }
+            }
+        }
+
+        // ========================================
+        // CARGA DE DATOS DE ESTUDIANTES
+        // ========================================
+        
+        async function loadStudentData() {
+            try {
+                showLoading('Cargando lista de estudiantes...');
+                
+                // En modo DEMO, cargar datos simulados específicos del colegio
+                if (DEMO_MODE) {
+                    console.log(`📚 MODO DEMO: Cargando datos simulados para ${currentColegio} - ${currentCurso}`);
+                    
+                    // Usar datos específicos según el colegio detectado
+                    if (currentColegio === 'guillermozañartu') {
+                        studentData = getGuillermoZañartuData();
+                    } else {
+                        studentData = getExampleStudentData();
+                    }
+                } else if (isGoogleSheetsConnected) {
+                    // Cargar desde Google Sheets solo en modo real
+                    studentData = await loadFromGoogleSheets();
+                } else {
+                    // Usar datos de ejemplo si no hay conexión
+                    studentData = getExampleStudentData();
+                }
+                
+                // En modo DEMO, simular carga de respuestas existentes
+                if (DEMO_MODE) {
+                    console.log('💾 MODO DEMO: Simulando carga de respuestas existentes');
+                    // Simular algunas respuestas guardadas
+                    setTimeout(() => {
+                        simulateExistingResponses();
+                    }, 500);
+                } else if (isFirebaseConnected) {
+                    // Cargar respuestas existentes desde Firebase solo en modo real
+                    await loadExistingResponses();
+                }
+                
+                initializeTable(studentData);
+                hideLoading();
+                
+            } catch (error) {
+                hideLoading();
+                showErrorMessage('Error cargando datos: ' + error.message);
+                // Usar datos de ejemplo como fallback
+                studentData = getExampleStudentData();
+                initializeTable(studentData);
+            }
+        }
+
+        function getGuillermoZañartuData() {
+            // Cargar datos reales según el curso seleccionado
+            const cursoData = DATOS_GUILLERMO_ZANARTU[currentCurso] || DATOS_GUILLERMO_ZANARTU['2basico-a'];
+            console.log(`📚 Cargando ${cursoData.length} estudiantes reales de ${currentColegio} - ${currentCurso}`);
+            return cursoData;
+        }
+
+        async function loadFromGoogleSheets() {
+            try {
+                console.log(`📊 Cargando datos REALES desde Google Sheets: ${currentColegio} - ${currentCurso}`);
+                
+                const spreadsheetId = getSpreadsheetId(currentColegio);
+                const range = `${currentCurso}!A:B`;
+                
+                // Usar fetch directo en lugar del SDK de Google (que no carga)
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?key=${GOOGLE_API_KEY}`;
+                
+                console.log('🔗 URL de consulta:', url);
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('📋 Respuesta de Google Sheets:', data);
+                
+                const values = data.values;
+                if (!values || values.length === 0) {
+                    throw new Error('No se encontraron datos en la hoja');
+                }
+                
+                // Procesar datos (saltar la primera fila que son los headers)
+                const estudiantes = values.slice(1).map(row => ({
+                    name: row[0] || '',
+                    rut: row[1] || '',
+                    id: generateStudentId(row[1])
+                }));
+                
+                console.log(`✅ ${estudiantes.length} estudiantes cargados desde Google Sheets REAL`);
+                return estudiantes;
+                
+            } catch (error) {
+                console.error('❌ Error cargando desde Google Sheets:', error);
+                console.log('📊 Usando datos de fallback local');
+                
+                // En caso de error, usar datos locales como fallback
+                if (currentColegio === 'guillermozañartu') {
+                    return getGuillermoZañartuData();
+                } else {
+                    return getExampleStudentData();
+                }
+            }
+        }
+
+        async function loadExistingResponses() {
+            // **CORRECCIÓN: Añadir guarda para no ejecutar si no hay conexión**
+            if (!isFirebaseConnected) return;
+
+            try {
+                const docRef = db.collection('respuestas').doc(`${currentColegio}-${currentCurso}`);
+                const doc = await docRef.get();
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    // Aplicar respuestas existentes a la interfaz
+                    applyExistingResponses(data);
+                }
+                
+            } catch (error) {
+                console.error('Error cargando respuestas existentes (probablemente offline):', error);
+                // No mostrar error al usuario, simplemente continuar sin datos previos.
+            }
+        }
+
+        // ========================================
+        // GUARDADO AUTOMÁTICO EN FIREBASE
+        // ========================================
+        
+        async function saveResponseToFirebase(studentId, questionNumber, response) {
+            if (!autoSaveEnabled) return;
+            
+            try {
+                if (DEMO_MODE) {
+                    // Simular guardado en modo demo
+                    console.log(`💾 Guardando (DEMO): Estudiante ${studentId}, P${questionNumber} = ${response}`);
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    showAutoSaveIndicator();
+                    return;
+                }
+
+                if (!isFirebaseConnected) {
+                    console.warn('⚠️ Firebase no conectado, no se puede guardar');
+                    return;
+                }
+                
+                const docRef = db.collection('respuestas').doc(`${currentColegio}-${currentCurso}`);
+                
+                await docRef.set({
+                    [`${studentId}_P${questionNumber}`]: response,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    colegio: currentColegio,
+                    curso: currentCurso
+                }, { merge: true });
+                
+                console.log(`💾 Guardado en Firebase: ${studentId}_P${questionNumber} = ${response}`);
+                showAutoSaveIndicator();
+                
+            } catch (error) {
+                console.error('❌ Error guardando en Firebase:', error);
+                showErrorMessage('Error al guardar automáticamente');
+            }
+        }
+
+        async function syncAllDataToFirebase() {
+            try {
+                if (DEMO_MODE) {
+                    showLoading('Sincronizando datos (DEMO)...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    hideLoading();
+                    showSuccessMessage('Datos sincronizados correctamente (DEMO)');
+                    return;
+                }
+
+                if (!isFirebaseConnected) {
+                    showErrorMessage('No hay conexión a Firebase');
+                    return;
+                }
+                
+                showLoading('Sincronizando datos...');
+                
+                const allResponses = {};
+                const rows = document.querySelectorAll('#students-table-body tr');
+                
+                rows.forEach((row, studentIndex) => {
+                    const student = studentData[studentIndex];
+                    if (!student) return;
+                    
+                    for (let i = 2; i < row.cells.length; i++) {
+                        const cell = row.cells[i];
+                        const input = cell.querySelector('.data-value');
+                        const questionNumber = i - 1;
+                        
+                        if (input && input.value) {
+                            allResponses[`${student.id}_P${questionNumber}`] = input.value;
+                        }
+                    }
+                });
+                
+                const docRef = db.collection('respuestas').doc(`${currentColegio}-${currentCurso}`);
+                await docRef.set({
+                    ...allResponses,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    colegio: currentColegio,
+                    curso: currentCurso
+                });
+                
+                hideLoading();
+                showSuccessMessage('Datos sincronizados correctamente');
+                
+            } catch (error) {
+                hideLoading();
+                showErrorMessage('Error en la sincronización: ' + error.message);
+            }
+        }
+
+        // ========================================
+        // FUNCIONES AUXILIARES
+        // ========================================
+        
+        function getSpreadsheetId(colegio) {
+            // Mapear cada colegio a su archivo específico de Google Sheets
+            // Basado en los 11 colegios reales con sus 24 cursos totales
+            const colegioToSpreadsheet = {
+                'guillermozañartu': '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU',           // 2 cursos - ¡TU HOJA REAL!
+                'benjaminclaro': '1DEF456-BENJAMINCLARO_ID',                 // 2 cursos
+                'republicacostarica': '1GHI789-REPUBLICACOSTARICA_ID',       // 2 cursos
+                'kallfu': '1JKL012-KALLFU_ID',                               // 1 curso
+                'juanmoya': '1MNO345-JUANMOYA_ID',                           // 2 cursos
+                'republicasiria': '1PQR678-REPUBLICASIRIA_ID',               // 4 cursos
+                'josetoribio': '1STU901-JOSETORIBIO_ID',                     // 2 cursos
+                'eduardofrei': '1VWX234-EDUARDOFREI_ID',                     // 3 cursos
+                'republicafrancia': '1YZA567-REPUBLICAFRANCIA_ID',           // 1 curso
+                'lenkafranulic': '1BCD890-LENKAFRANULIC_ID',                 // 2 cursos
+                'carmelasilva': '1EFG123-CARMELASILVA_ID',                   // 3 cursos
+                'demo': '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU'      // Usar tu hoja para demo también
+            };
+            
+            return colegioToSpreadsheet[colegio.toLowerCase()] || colegioToSpreadsheet['demo'];
+        }
+
+        function getSheetRange(curso) {
+            // Cada curso tiene su propia pestaña en el archivo del colegio
+            return `${curso}!A:B`;  // Ej: "2basico-a!A:B"
+        }
+
+        // Función para validar combinación colegio-curso
+        function validarColegioYCurso(colegio, curso) {
+            // Definir exactamente qué cursos tiene cada colegio
+            const colegiosCursos = {
+                'guillermozañartu': ['2basico-a', '2basico-b'],              // 2 cursos
+                'benjaminclaro': ['2basico-a', '2basico-b'],                 // 2 cursos  
+                'republicacostarica': ['2basico-a', '2basico-b'],            // 2 cursos
+                'kallfu': ['2basico-a'],                                     // 1 curso
+                'juanmoya': ['2basico-a', '2basico-b'],                      // 2 cursos
+                'republicasiria': ['2basico-a', '2basico-b', '2basico-c', '2basico-d'], // 4 cursos
+                'josetoribio': ['2basico-a', '2basico-b'],                   // 2 cursos
+                'eduardofrei': ['2basico-a', '2basico-b', '2basico-c'],      // 3 cursos
+                'republicafrancia': ['2basico-a'],                           // 1 curso
+                'lenkafranulic': ['2basico-a', '2basico-b'],                 // 2 cursos
+                'carmelasilva': ['2basico-a', '2basico-b', '2basico-c'],     // 3 cursos
+                'demo': ['2basico-a', '2basico-b']
+            };
+            
+            const cursosDelColegio = colegiosCursos[colegio.toLowerCase()];
+            
+            if (!cursosDelColegio) {
+                console.warn(`⚠️ Colegio '${colegio}' no reconocido`);
+                return false;
+            }
+            
+            if (!cursosDelColegio.includes(curso.toLowerCase())) {
+                console.warn(`⚠️ Curso '${curso}' no existe en colegio '${colegio}'`);
+                console.log(`Cursos disponibles para ${colegio}:`, cursosDelColegio);
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Función para obtener nombres amigables de colegios
+        function getNombreAmigableColegio(colegio) {
+            const nombresAmigables = {
+                'guillermozañartu': 'Escuela Guillermo Zañartu Irigoyen',
+                'benjaminclaro': 'Colegio Benjamín Claro Velasco', 
+                'republicacostarica': 'Colegio República de Costa Rica',
+                'kallfu': 'Escuela Intercultural Kallfu Mapu',
+                'juanmoya': 'Colegio Juan Moya Morales',
+                'republicasiria': 'Liceo República de Siria',
+                'josetoribio': 'Colegio José Toribio Medina',
+                'eduardofrei': 'Colegio Presidente Eduardo Frei M.',
+                'republicafrancia': 'Colegio República de Francia',
+                'lenkafranulic': 'Liceo Lenka Franulic',
+                'carmelasilva': 'Liceo Carmela Silva Donoso',
+                'demo': 'Colegio Demo'
+            };
+            
+            return nombresAmigables[colegio.toLowerCase()] || colegio;
+        }
+
+        // Nueva función: Detectar colegio y curso desde Moodle
+        function detectarContextoMoodle() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Opción 1: Parámetros directos
+            let colegio = urlParams.get('colegio');
+            let curso = urlParams.get('curso');
+            
+            // Opción 2: Si Moodle pasa IDs, mapear a nombres
+            const courseId = urlParams.get('courseid');
+            
+            if (courseId && !colegio) {
+                // Mapear courseId de Moodle a colegio/curso específico
+                const moodleCourseMapping = {
+                    // Escuela Guillermo Zañartu Irigoyen (2 cursos)
+                    '101': { colegio: 'guillermozañartu', curso: '2basico-a' },
+                    '102': { colegio: 'guillermozañartu', curso: '2basico-b' },
+                    // ... resto de mappings
+                };
+                
+                const mapping = moodleCourseMapping[courseId];
+                if (mapping) {
+                    colegio = mapping.colegio;
+                    curso = mapping.curso;
+                } else {
+                    console.warn(`⚠️ CourseId ${courseId} no mapeado`);
+                }
+            }
+            
+            // CORRECCIÓN: Si no hay parámetros, usar guillermozañartu en lugar de demo
+            colegio = colegio || 'guillermozañartu';
+            curso = curso || '2basico-a';
+            
+            // Validar que la combinación sea correcta
+            if (!validarColegioYCurso(colegio, curso)) {
+                console.error(`❌ Combinación inválida: ${colegio} - ${curso}`);
+                // Usar Guillermo Zañartu como valores seguros
+                colegio = 'guillermozañartu';
+                curso = '2basico-a';
+            }
+            
+            console.log('🎯 Contexto final detectado:', { colegio, curso });
+            return { colegio, curso };
+        }
+
+        function generateStudentId(rut) {
+            return rut.replace(/[^0-9kK]/g, '').toLowerCase();
+        }
+
+        function getExampleStudentData() {
+            return [
+                { name: "Maximiliano Andrés Aceitón Hernández", rut: "26045838-8", id: "260458388" },
+                { name: "Constanza Andrea Acevedo Rojas", rut: "25495346-6", id: "254953466" },
+                { name: "Víctor Patricio Aedo Becerra", rut: "26114883-8", id: "261148838" },
+                { name: "Antonia Sofía Avendaño Jiménez", rut: "25964073-3", id: "259640733" },
+                { name: "Martin Antonio Blanca Gutiérrez", rut: "25926919-9", id: "259269199" },
+                { name: "Kataleia Francesca Castro Villanueva", rut: "26095657-4", id: "260956574" },
+                { name: "Lía Isidora Cleary Villarroel", rut: "25779581-0", id: "257795810" },
+                { name: "Luana Valentina Cuyuche Del Carpio", rut: "25839768-1", id: "258397681" },
+                { name: "Gaspar Ignacio Doren Parada", rut: "25982072-3", id: "259820723" },
+                { name: "Mateo de Jesús Herrera Ferrer", rut: "26731519-1", id: "267315191" },
+                { name: "Tomas Alonso Herrera González", rut: "25918404-5", id: "259184045" },
+                { name: "Mía Alejandra Miqueles Jaque", rut: "25796362-4", id: "257963624" },
+                { name: "Natalia Andreina Montes de Oca Altuve", rut: "26907785-9", id: "269077859" },
+                { name: "Jacobo Montoya Martinez", rut: "100756019-9", id: "1007560199" },
+                { name: "Emilio Ezequiel Ollarce Jeria", rut: "26063479-8", id: "260634798" },
+                { name: "Atenea Orellana Romeo", rut: "26134235-9", id: "261342359" },
+                { name: "Dante Alejandro Páez Moya", rut: "25730068-4", id: "257300684" },
+            ];
+        }
+
+        function applyExistingResponses(data) {
+            Object.keys(data).forEach(key => {
+                if (key.includes('_P')) {
+                    const [studentId, questionKey] = key.split('_P');
+                    const questionNumber = parseInt(questionKey);
+                    const response = data[key];
+                    
+                    // Encontrar la celda correspondiente y aplicar la respuesta
+                    const studentIndex = studentData.findIndex(s => s.id === studentId);
+                    if (studentIndex !== -1) {
+                        const row = document.querySelectorAll('#students-table-body tr')[studentIndex];
+                        if (row) {
+                            const cell = row.cells[questionNumber + 1]; // +1 porque la primera columna es el nombre
+                            if (cell) {
+                                const input = cell.querySelector('.data-value');
+                                if (input) {
+                                    input.value = response;
+                                    // Aplicar visualización para alternativas
+                                    if (cell.dataset.type === 'alt' && ['A', 'B', 'C'].includes(response)) {
+                                        const button = cell.querySelector(`[data-value="${response}"]`);
+                                        if (button) button.classList.add('selected');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateConnectionStatus(elementId, connected) {
+            const element = document.getElementById(elementId);
+            if (connected) {
+                element.classList.add('connected');
+            } else {
+                element.classList.remove('connected');
+            }
+        }
+
+        function showLoading(message) {
+            document.getElementById('loading-message').textContent = message;
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        function showErrorMessage(message) {
+            const container = document.querySelector('.container');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            container.insertBefore(errorDiv, container.firstChild);
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function showSuccessMessage(message) {
+            const container = document.querySelector('.container');
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            container.insertBefore(successDiv, container.firstChild);
+            setTimeout(() => successDiv.remove(), 3000);
+        }
+
+        function showAutoSaveIndicator() {
+            const indicator = document.getElementById('auto-save-indicator');
+            indicator.classList.add('show');
+            setTimeout(() => indicator.classList.remove('show'), 2000);
+        }
+
+        // ========================================
+        // INICIALIZACIÓN AL CARGAR LA PÁGINA
+        // ========================================
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('📄 Página cargada, iniciando conexiones...');
+            
+            // En modo demo, inicializar inmediatamente
+            if (DEMO_MODE) {
+                console.log('🚀 Iniciando en modo DEMO');
+                initializeConnections();
+                return;
+            }
+            
+            // Verificar que Firebase SDK esté disponible
+            if (typeof firebase === 'undefined') {
+                console.error('❌ Firebase SDK no está disponible');
+                console.log('🔄 Esperando carga de Firebase...');
+                
+                // Esperar hasta 5 segundos por Firebase
+                let attempts = 0;
+                const checkFirebase = setInterval(() => {
+                    attempts++;
+                    if (typeof firebase !== 'undefined') {
+                        console.log('✅ Firebase SDK disponible después de ' + attempts + ' intentos');
+                        clearInterval(checkFirebase);
+                        initializeConnections();
+                    } else if (attempts >= 50) { // 5 segundos
+                        console.log('⚠️ Firebase SDK no disponible, activando modo DEMO');
+                        clearInterval(checkFirebase);
+                        // Cambiar a modo demo automáticamente
+                        window.DEMO_MODE = true;
+                        initializeConnections();
+                    }
+                }, 100);
+                
+                return;
+            }
+            
+            console.log('✅ Firebase SDK disponible');
+            
+            // Pequeña pausa para asegurar que todos los scripts estén cargados
+            setTimeout(() => {
+                initializeConnections();
+            }, 100);
         });
 
         function initializeTable(studentData) {
@@ -151,7 +1408,6 @@
                     cell.classList.add('active-cell');
                     cell.parentElement.classList.add('active-row');
                     activeCell = cell;
-                    activeCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
                 } else {
                     activeCell = null;
                 }
@@ -160,25 +1416,26 @@
             function populateTable() {
                 studentData.forEach((student) => {
                     const row = document.createElement('tr');
-                    row.className = "hover:bg-gray-50";
-                    row.innerHTML = `<td class="sticky left-0 bg-white hover:bg-gray-50 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student.name}</td>`;
-                    row.innerHTML += `<td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${student.rut}</td>`;
+                    row.innerHTML = `
+                        <td class="sticky-col student-cell">${student.name}</td>
+                        <td class="rut-cell">${student.rut}</td>
+                    `;
 
                     for (let i = 1; i <= 20; i++) {
                         const cell = document.createElement('td');
-                        cell.className = "px-4 py-2 whitespace-nowrap text-sm text-gray-500 text-center";
                         cell.dataset.type = preguntas_3_alt.includes(i) ? 'alt' : 'score';
                         
                         if (cell.dataset.type === 'alt') {
                             cell.innerHTML = `
                                 <input type="hidden" class="data-value">
                                 <div class="alt-group">
+                                    <span class="omission-mark" style="display: none;">O</span>
                                     <div class="alt-btn" data-value="A">A</div>
                                     <div class="alt-btn" data-value="B">B</div>
                                     <div class="alt-btn" data-value="C">C</div>
                                 </div>`;
                         } else {
-                            cell.innerHTML = `<input type="number" min="0" max="5" class="score-input w-16 text-center data-value">`;
+                            cell.innerHTML = `<input type="number" min="0" max="5" class="score-input data-value">`;
                         }
                         row.appendChild(cell);
                     }
@@ -187,6 +1444,7 @@
             }
 
             function advanceToNextCell(cell) {
+                if (!cell) return null;
                 let nextCell = cell.nextElementSibling;
                 if (nextCell && nextCell.dataset.type) {
                     return nextCell;
@@ -199,12 +1457,45 @@
                 }
                 return null;
             }
+            
+            function resetCell(cell) {
+                 if (!cell || cell.dataset.type !== 'alt') return cell;
+                const hiddenInput = cell.querySelector('input.data-value');
+                const buttons = cell.querySelectorAll('.alt-btn');
+                const omissionMark = cell.querySelector('.omission-mark');
+
+                if (omissionMark) omissionMark.style.display = 'none';
+                if (hiddenInput) hiddenInput.value = '';
+                buttons.forEach(btn => {
+                    btn.classList.remove('selected');
+                    btn.style.display = 'flex';
+                });
+                return cell;
+            }
+
+            function handleOmission(cell) {
+                if (!cell || cell.dataset.type !== 'alt') return cell;
+                const hiddenInput = cell.querySelector('input.data-value');
+                const buttons = cell.querySelectorAll('.alt-btn');
+                const omissionMark = cell.querySelector('.omission-mark');
+                
+                buttons.forEach(btn => {
+                    btn.classList.remove('selected');
+                    btn.style.display = 'none';
+                });
+                if (omissionMark) omissionMark.style.display = 'block';
+                if (hiddenInput) hiddenInput.value = 'O';
+
+                return advanceToNextCell(cell);
+            }
 
             function handleCellSelection(cell, value) {
                 if (!cell || cell.dataset.type !== 'alt') return cell;
                 const hiddenInput = cell.querySelector('input.data-value');
                 const buttons = cell.querySelectorAll('.alt-btn');
-                buttons.forEach(btn => btn.classList.remove('selected'));
+                
+                resetCell(cell);
+
                 const selectedBtn = Array.from(buttons).find(btn => btn.dataset.value === value);
                 if (selectedBtn) {
                     selectedBtn.classList.add('selected');
@@ -215,41 +1506,118 @@
             
             tableBody.addEventListener('click', function(e) {
                 const cell = e.target.closest('td[data-type]');
-                if (cell) setActiveCell(cell);
+                if (!cell) return;
+                
+                setActiveCell(cell);
+                const isOmitted = cell.querySelector('.omission-mark')?.style.display === 'block';
+
                 if (e.target.classList.contains('alt-btn')) {
-                    const newActiveCell = handleCellSelection(cell, e.target.dataset.value);
+                    const clickedButton = e.target;
+                    let newActiveCell;
+                    if (clickedButton.classList.contains('selected')) {
+                        newActiveCell = handleOmission(cell);
+                    } else {
+                        newActiveCell = handleCellSelection(cell, clickedButton.dataset.value);
+                    }
+                    
+                    // Guardar en Firebase
+                    const studentIndex = Array.from(cell.parentElement.parentElement.children).indexOf(cell.parentElement) - 1;
+                    const questionNumber = Array.from(cell.parentElement.children).indexOf(cell) - 1;
+                    if (studentData[studentIndex]) {
+                        const response = cell.querySelector('.data-value').value;
+                        saveResponseToFirebase(studentData[studentIndex].id, questionNumber, response);
+                    }
+                    
                     setActiveCell(newActiveCell);
+                } else if (isOmitted) {
+                    const sameCell = resetCell(cell);
+                    setActiveCell(sameCell);
                 }
             });
             
             const terminalInput = document.getElementById('terminal-input');
             const terminalFeedback = document.getElementById('terminal-feedback');
+            const terminalVisualFeedback = document.getElementById('terminal-visual-feedback');
+
+            function validateAndRenderInput() {
+                if (!activeCell) {
+                    terminalVisualFeedback.innerHTML = '';
+                    return false;
+                }
+                const input = terminalInput.value.toUpperCase();
+                let visualHtml = '';
+                let isValid = true;
+                let currentCell = activeCell;
+
+                const expandedInput = input.replace(/([A-DO])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+
+                for (const char of expandedInput) {
+                    if (!currentCell) {
+                        visualHtml += `<span class="invalid-char">${char}</span>`;
+                        isValid = false;
+                        continue;
+                    }
+                    
+                    const cellType = currentCell.dataset.type;
+                    if (cellType === 'alt' && ['A', 'B', 'C'].includes(char)) {
+                        visualHtml += `<span class="valid-char">${char}</span>`;
+                    } else if (cellType === 'alt' && char === 'O') {
+                        visualHtml += `<span class="omitted-char">${char}</span>`;
+                    } else if (cellType === 'score' && !isNaN(parseInt(char))) {
+                        visualHtml += `<span class="valid-char">${char}</span>`;
+                    } else {
+                        visualHtml += `<span class="invalid-char">${char}</span>`;
+                        isValid = false;
+                    }
+                    currentCell = advanceToNextCell(currentCell);
+                }
+                terminalVisualFeedback.innerHTML = visualHtml;
+                return isValid;
+            }
 
             function processInput(inputString) {
                 if (!activeCell) return { error: "Error: No hay una celda activa.", count: 0 };
-                let input = inputString.toUpperCase().trim().replace(/([A-D])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+                
+                if (!validateAndRenderInput()) {
+                    return { error: "Error: La cadena contiene respuestas inválidas (en rojo).", count: 0 };
+                }
+
+                let input = inputString.toUpperCase().trim().replace(/([A-DO])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
                 let responses = input.split(/[\s,]+/).join('').split('');
                 let processedCount = 0;
                 let currentCell = activeCell;
 
                 for (const response of responses) {
                     if (!currentCell) break;
-                    if (currentCell.dataset.type === 'alt' && ['A', 'B', 'C', 'D'].includes(response)) {
-                        currentCell = handleCellSelection(currentCell, response);
-                        processedCount++;
+                    
+                    if (currentCell.dataset.type === 'alt') {
+                        if (['A', 'B', 'C'].includes(response)) {
+                            currentCell = handleCellSelection(currentCell, response);
+                            processedCount++;
+                        } else if (response === 'O') {
+                            currentCell = handleOmission(currentCell);
+                            processedCount++;
+                        }
                     }
                 }
                 setActiveCell(currentCell);
                 return { error: null, count: processedCount };
             }
 
+            terminalInput.addEventListener('input', validateAndRenderInput);
+
             terminalInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     const result = processInput(terminalInput.value);
                     terminalFeedback.textContent = result.error || `✓ ${result.count} respuestas procesadas.`;
-                    terminalInput.value = '';
-                    setTimeout(() => terminalFeedback.textContent = '', 3000);
+                    if (result.error) {
+                        terminalInput.focus();
+                    } else {
+                        terminalInput.value = '';
+                        terminalVisualFeedback.innerHTML = '';
+                    }
+                    setTimeout(() => terminalFeedback.textContent = '', 4000);
                 }
             });
             
@@ -313,7 +1681,63 @@
             const firstCell = tableBody.querySelector('td[data-type]');
             if (firstCell) setActiveCell(firstCell);
             document.getElementById('download-csv-btn').addEventListener('click', downloadCSV);
+            document.getElementById('sync-firebase-btn').addEventListener('click', syncAllDataToFirebase);
+
+            // --- LÓGICA DE NAVEGACIÓN ---
+            const prevStudentBtn = document.getElementById('prev-student-btn');
+            const nextStudentBtn = document.getElementById('next-student-btn');
+            const scrollLeftBtn = document.getElementById('scroll-left-btn');
+            const scrollRightBtn = document.getElementById('scroll-right-btn');
+            const tableContainer = document.getElementById('table-container');
+            const scrollNav = document.getElementById('scroll-nav');
+
+            prevStudentBtn.addEventListener('click', () => {
+                if (!activeCell) return;
+                const currentRow = activeCell.parentElement;
+                const prevRow = currentRow.previousElementSibling;
+                if (prevRow) {
+                    const firstCellInPrevRow = prevRow.querySelector('td[data-type]');
+                    if (firstCellInPrevRow) setActiveCell(firstCellInPrevRow);
+                }
+            });
+
+            nextStudentBtn.addEventListener('click', () => {
+                if (!activeCell) return;
+                const currentRow = activeCell.parentElement;
+                const nextRow = currentRow.nextElementSibling;
+                if (nextRow) {
+                    const firstCellInNextRow = nextRow.querySelector('td[data-type]');
+                    if (firstCellInNextRow) setActiveCell(firstCellInNextRow);
+                }
+            });
+
+            scrollLeftBtn.addEventListener('click', () => {
+                tableContainer.scrollLeft -= 300;
+            });
+
+            scrollRightBtn.addEventListener('click', () => {
+                tableContainer.scrollLeft += 300;
+            });
+
+            function updateScrollButtons() {
+                const { scrollLeft, scrollWidth, clientWidth } = tableContainer;
+                
+                if (scrollWidth > clientWidth) {
+                    scrollNav.style.display = 'flex';
+                } else {
+                    scrollNav.style.display = 'none';
+                }
+                
+                scrollLeftBtn.disabled = scrollLeft <= 0;
+                scrollRightBtn.disabled = scrollLeft >= (scrollWidth - clientWidth - 1);
+            }
+
+            tableContainer.addEventListener('scroll', updateScrollButtons);
+            
+            // Usar ResizeObserver para detectar cambios en el tamaño del contenedor
+            const resizeObserver = new ResizeObserver(updateScrollButtons);
+            resizeObserver.observe(tableContainer);
         }
     </script>
 </body>
-</html>
+</html> 
