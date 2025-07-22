@@ -7,8 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     
-    <!-- CORRECCIÓN: Se añaden los scripts del SDK de Firebase -->
+    <!-- CORRECCIÓN: Se añaden TODOS los scripts del SDK de Firebase necesarios -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
@@ -520,6 +521,85 @@
         .auto-save-indicator.show {
             opacity: 1;
         }
+        
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-overlay.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-content h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #1f2937;
+        }
+
+        .modal-content p {
+            margin-bottom: 1.5rem;
+            color: #6b7280;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .modal-btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .modal-btn-confirm {
+            background-color: #dc2626;
+            color: white;
+        }
+        .modal-btn-confirm:hover {
+            background-color: #b91c1c;
+        }
+
+        .modal-btn-cancel {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        .modal-btn-cancel:hover {
+            background-color: #d1d5db;
+        }
+
     </style>
 </head>
 <body>
@@ -638,7 +718,10 @@
                     Generar y Descargar CSV
                 </button>
                 <button id="sync-firebase-btn" class="download-btn" style="background: #3b82f6; margin-left: 1rem;">
-                    Sincronizar con Firebase
+                    Guardar
+                </button>
+                <button id="clear-all-btn" class="download-btn" style="background: #dc2626; margin-left: 1rem;">
+                    Limpiar Todo
                 </button>
             </div>
         </main>
@@ -657,6 +740,18 @@
         Guardado automáticamente
     </div>
 
+    <!-- Confirmation Modal -->
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>¿Estás seguro?</h3>
+            <p>Esta acción eliminará permanentemente todas las respuestas de este curso. No se puede deshacer.</p>
+            <div class="modal-actions">
+                <button id="modal-cancel-btn" class="modal-btn modal-btn-cancel">Cancelar</button>
+                <button id="modal-confirm-btn" class="modal-btn modal-btn-confirm">Sí, Limpiar Todo</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://apis.google.com/js/api.js"></script>
 
     <script>
@@ -664,7 +759,6 @@
         // CONFIGURACIÓN HÍBRIDA - FUNCIONA SIN APIS EXTERNAS
         // ========================================
         
-        // Datos reales de tu Google Sheets integrados directamente
         const DATOS_GUILLERMO_ZANARTU = {
             '2basico-a': [
                 { name: "ALEXANDRA GABILY LILLO BRAVO", rut: "25387012-5", id: "253870125" },
@@ -683,32 +777,27 @@
                 { name: "VICENTE ALONSO MALIO NAVARRETE", rut: "26047206-2", id: "260472062" },
                 { name: "ERIANYELY YISELL MÁRQUEZ GONZÁLEZ", rut: "28389623-4", id: "283896234" },
                 { name: "FLORENCIA ISIDORA MONTECINO MONTECINO", rut: "25770714-8", id: "257707148" }
-                // Aquí puedes agregar los estudiantes restantes hasta completar los 34
             ],
             '2basico-b': [
-                // Agrega aquí los estudiantes de 2° básico B
                 { name: "Estudiante 2B - 1", rut: "11111111-1", id: "111111111" },
                 { name: "Estudiante 2B - 2", rut: "22222222-2", id: "222222222" }
-                // ... agregar resto de estudiantes de 2°B
             ]
         };
 
-        // Configuración de Firebase (mantenemos para cuando funcione)
         const firebaseConfig = {
-            apiKey: "AIzaSyBNlYH01_9Hc...",
-            authDomain: "sistema-respuestas-colegio.firebaseapp.com",
-            projectId: "sistema-respuestas-colegio",
-            storageBucket: "sistema-respuestas-colegio.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef123456"
+            apiKey: "AIzaSyCzj_pCRP8sEWvW3tYfE22ibwID7w8w5Tk",
+            authDomain: "ingreso-respuestas.firebaseapp.com",
+            projectId: "ingreso-respuestas",
+            storageBucket: "ingreso-respuestas.firebasestorage.app",
+            messagingSenderId: "955354401672",
+            appId: "1:955354401672:web:16d1d4686d57753c66083d"
         };
 
-        // API Key de Google Sheets (mantenemos para cuando funcione)
         const GOOGLE_API_KEY = 'AIzaSyDcR4qt0Kc8OClP0pCIx3ggsBS1NKQoX-o';
         const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
         
-        // Variables globales
         let db;
+        let auth; // CORRECCIÓN: Añadir variable global para auth
         let isFirebaseConnected = false;
         let isGoogleSheetsConnected = false;
         let currentColegio = '';
@@ -716,374 +805,188 @@
         let studentData = [];
         let autoSaveEnabled = true;
 
-        // ========================================
-        // MODO DEMO PARA TESTING
-        // ========================================
-        
-        const DEMO_MODE = false; // ¡ACTIVANDO MODO REAL con fetch directo!
+        const DEMO_MODE = false;
         
         if (DEMO_MODE) {
-            console.log('🚀 MODO DEMO ACTIVADO - Simulando conexiones');
+            console.log('🚀 MODO DEMO ACTIVADO');
         } else {
-            console.log('🔥 MODO REAL ACTIVADO - Conectando a Firebase');
+            console.log('🔥 MODO REAL ACTIVADO');
         }
 
-        // ========================================
-        // INICIALIZACIÓN DE CONEXIONES
-        // ========================================
-        
         async function initializeConnections() {
             showLoading('Inicializando conexiones...');
-            
             try {
-                // Detectar contexto desde Moodle
                 const contexto = detectarContextoMoodle();
                 currentColegio = contexto.colegio;
                 currentCurso = contexto.curso;
-                
-                console.log('🎯 Contexto detectado:', { colegio: currentColegio, curso: currentCurso });
-                
                 document.getElementById('course-info').textContent = 
                     `${getNombreAmigableColegio(currentColegio)} | Curso: ${currentCurso.toUpperCase()}`;
 
-                // Inicializar Firebase
                 await initializeFirebase();
-                
-                // Inicializar Google Sheets API
                 await initializeGoogleSheets();
-                
-                // Cargar datos de estudiantes
                 await loadStudentData();
                 
                 hideLoading();
-                showSuccessMessage('Conexiones establecidas correctamente');
-                
+                showSuccessMessage('Listo para ingresar respuestas.');
             } catch (error) {
                 hideLoading();
-                showErrorMessage('Error al inicializar: ' + error.message);
+                showErrorMessage('Error fatal al inicializar: ' + error.message);
             }
-        }
-
-        function simulateExistingResponses() {
-            // Simular algunas respuestas guardadas para demo
-            const demoResponses = {
-                '260458388_P1': 'A',
-                '260458388_P2': 'B', 
-                '254953466_P1': 'C',
-                '254953466_P3': 'A',
-                '261148838_P1': 'B',
-                '261148838_P2': 'C'
-            };
-            
-            console.log('🎭 Aplicando respuestas simuladas:', demoResponses);
-            applyExistingResponses(demoResponses);
         }
 
         async function initializeFirebase() {
             try {
-                // **CORRECCIÓN: Añadir validación de placeholders en la configuración**
-                if (firebaseConfig.apiKey.startsWith("AIzaSy") && firebaseConfig.apiKey.includes("...")) {
-                    console.warn('⚠️ Usando configuración de Firebase de ejemplo. La conexión no se intentará.');
-                    updateConnectionStatus('firebase-status', false);
-                    isFirebaseConnected = false;
-                    return; // Salir de la función para evitar el error de conexión
-                }
-
-                if (DEMO_MODE) {
-                    // Simular conexión exitosa en modo demo
-                    console.log('🔥 Simulando conexión a Firebase...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    isFirebaseConnected = true;
-                    updateConnectionStatus('firebase-status', true);
-                    console.log('✅ Firebase conectado (DEMO)');
-                    return;
-                }
-
-                // Verificar que Firebase esté disponible
                 if (typeof firebase === 'undefined') {
-                    throw new Error('Firebase SDK no está cargado. Verifica la conexión a internet.');
+                    throw new Error('SDK de Firebase no cargado.');
                 }
 
                 console.log('🔥 Inicializando Firebase...');
-                
-                // Verificar si ya está inicializado
                 if (firebase.apps.length === 0) {
                     firebase.initializeApp(firebaseConfig);
-                    console.log('📱 Firebase App inicializada');
-                } else {
-                    console.log('📱 Firebase App ya estaba inicializada');
                 }
                 
                 db = firebase.firestore();
-                console.log('💾 Firestore Database conectada');
+                auth = firebase.auth(); // CORRECCIÓN: Inicializar auth
                 
-                // Probar conexión con una operación simple
-                await db.enableNetwork();
-                console.log('🌐 Red de Firestore habilitada');
+                console.log('🔐 Autenticando anónimamente...');
+                await auth.signInAnonymously();
                 
-                isFirebaseConnected = true;
-                updateConnectionStatus('firebase-status', true);
-                console.log('✅ Firebase conectado exitosamente (REAL)');
-                
+                // CORRECCIÓN: Usar onAuthStateChanged para asegurar que el usuario está autenticado antes de continuar
+                return new Promise((resolve, reject) => {
+                    auth.onAuthStateChanged(async user => {
+                        if (user) {
+                            console.log('✅ Autenticación anónima exitosa. UID:', user.uid);
+                            try {
+                                await db.enableNetwork();
+                                isFirebaseConnected = true;
+                                updateConnectionStatus('firebase-status', true);
+                                console.log('✅ Firebase conectado y autenticado.');
+                                resolve();
+                            } catch (networkError) {
+                                console.error('❌ Error habilitando la red de Firestore:', networkError);
+                                isFirebaseConnected = false;
+                                updateConnectionStatus('firebase-status', false);
+                                reject(networkError);
+                            }
+                        } else {
+                            isFirebaseConnected = false;
+                            updateConnectionStatus('firebase-status', false);
+                            console.log('⚠️ Usuario no autenticado.');
+                            reject(new Error("La autenticación anónima falló."));
+                        }
+                    });
+                });
+
             } catch (error) {
                 console.error('❌ Error detallado inicializando Firebase:', error);
                 updateConnectionStatus('firebase-status', false);
                 isFirebaseConnected = false;
-                console.log('⚠️ Firebase no disponible, continuando sin guardado automático');
+                throw new Error(`Firebase: ${error.message}`);
             }
         }
 
         async function initializeGoogleSheets() {
             try {
-                if (DEMO_MODE) {
-                    console.log('📊 Simulando conexión a Google Sheets...');
-                    await new Promise(resolve => setTimeout(resolve, 800));
-                    isGoogleSheetsConnected = true;
-                    updateConnectionStatus('sheets-status', true);
-                    console.log('✅ Google Sheets conectado (DEMO)');
-                    return;
-                }
-
-                console.log('📊 Inicializando Google Sheets API en modo REAL...');
-                console.log('🔑 API Key:', GOOGLE_API_KEY.substring(0, 20) + '...');
-
-                // Verificar que gapi esté disponible
                 if (typeof gapi === 'undefined') {
-                    console.error('❌ Google API (gapi) no está disponible');
-                    throw new Error('Google API no está disponible - verifica la conexión a internet');
+                    throw new Error('Google API no está disponible');
                 }
-
-                console.log('⏳ Cargando cliente de Google API...');
-                await new Promise((resolve, reject) => {
-                    gapi.load('client', {
-                        callback: resolve,
-                        onerror: reject
-                    });
-                });
-                
-                console.log('🔧 Inicializando cliente con API Key...');
-                await gapi.client.init({
-                    apiKey: GOOGLE_API_KEY,
-                    discoveryDocs: [DISCOVERY_DOC],
-                });
-                
-                console.log('🧪 Probando conexión con hoja de Guillermo Zañartu...');
-                // Probar conexión con tu hoja específica
-                const testResponse = await gapi.client.sheets.spreadsheets.values.get({
-                    spreadsheetId: '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU',
-                    range: '2basico-a!A1:B1',
-                });
-                
-                console.log('✅ Respuesta de prueba recibida:', testResponse);
-                
+                await new Promise((resolve, reject) => gapi.load('client', { callback: resolve, onerror: reject }));
+                await gapi.client.init({ apiKey: GOOGLE_API_KEY, discoveryDocs: [DISCOVERY_DOC] });
                 isGoogleSheetsConnected = true;
                 updateConnectionStatus('sheets-status', true);
-                console.log('✅ Google Sheets conectado exitosamente (REAL)');
-                
             } catch (error) {
-                console.error('❌ Error detallado inicializando Google Sheets:', error);
-                console.error('📋 Detalles del error:', {
-                    message: error.message,
-                    status: error.status,
-                    code: error.code
-                });
-                
+                console.error('❌ Error inicializando Google Sheets:', error);
                 updateConnectionStatus('sheets-status', false);
-                
-                if (!DEMO_MODE) {
-                    // En modo real, mostrar error específico pero continuar
-                    console.log('⚠️ Google Sheets no disponible, usando datos de fallback');
-                    isGoogleSheetsConnected = false;
-                } else {
-                    console.log('⚠️ Error en Google Sheets pero continuando en modo DEMO');
-                    isGoogleSheetsConnected = true;
-                    updateConnectionStatus('sheets-status', true);
-                }
+                isGoogleSheetsConnected = false;
             }
         }
 
-        // ========================================
-        // CARGA DE DATOS DE ESTUDIANTES
-        // ========================================
-        
         async function loadStudentData() {
-            try {
-                showLoading('Cargando lista de estudiantes...');
-                
-                // En modo DEMO, cargar datos simulados específicos del colegio
-                if (DEMO_MODE) {
-                    console.log(`📚 MODO DEMO: Cargando datos simulados para ${currentColegio} - ${currentCurso}`);
-                    
-                    // Usar datos específicos según el colegio detectado
-                    if (currentColegio === 'guillermozañartu') {
-                        studentData = getGuillermoZañartuData();
-                    } else {
-                        studentData = getExampleStudentData();
-                    }
-                } else if (isGoogleSheetsConnected) {
-                    // Cargar desde Google Sheets solo en modo real
-                    studentData = await loadFromGoogleSheets();
-                } else {
-                    // Usar datos de ejemplo si no hay conexión
-                    studentData = getExampleStudentData();
-                }
-                
-                // En modo DEMO, simular carga de respuestas existentes
-                if (DEMO_MODE) {
-                    console.log('💾 MODO DEMO: Simulando carga de respuestas existentes');
-                    // Simular algunas respuestas guardadas
-                    setTimeout(() => {
-                        simulateExistingResponses();
-                    }, 500);
-                } else if (isFirebaseConnected) {
-                    // Cargar respuestas existentes desde Firebase solo en modo real
-                    await loadExistingResponses();
-                }
-                
-                initializeTable(studentData);
-                hideLoading();
-                
-            } catch (error) {
-                hideLoading();
-                showErrorMessage('Error cargando datos: ' + error.message);
-                // Usar datos de ejemplo como fallback
-                studentData = getExampleStudentData();
-                initializeTable(studentData);
+            showLoading('Cargando lista de estudiantes...');
+            
+            // 1. Obtener la lista de estudiantes
+            if (isGoogleSheetsConnected) {
+                studentData = await loadFromGoogleSheets();
+            } else {
+                studentData = getGuillermoZañartuData();
             }
-        }
-
-        function getGuillermoZañartuData() {
-            // Cargar datos reales según el curso seleccionado
-            const cursoData = DATOS_GUILLERMO_ZANARTU[currentCurso] || DATOS_GUILLERMO_ZANARTU['2basico-a'];
-            console.log(`📚 Cargando ${cursoData.length} estudiantes reales de ${currentColegio} - ${currentCurso}`);
-            return cursoData;
+            
+            // 2. Dibujar la tabla con la lista de estudiantes (aún sin respuestas)
+            initializeTable(studentData);
+            
+            // 3. Ahora, obtener las respuestas de Firebase y aplicarlas a la tabla ya dibujada
+            if (isFirebaseConnected) {
+                await loadExistingResponses();
+            }
+            
+            hideLoading();
         }
 
         async function loadFromGoogleSheets() {
             try {
-                console.log(`📊 Cargando datos REALES desde Google Sheets: ${currentColegio} - ${currentCurso}`);
-                
                 const spreadsheetId = getSpreadsheetId(currentColegio);
                 const range = `${currentCurso}!A:B`;
-                
-                // Usar fetch directo en lugar del SDK de Google (que no carga)
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?key=${GOOGLE_API_KEY}`;
-                
-                console.log('🔗 URL de consulta:', url);
-                
                 const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
-                console.log('📋 Respuesta de Google Sheets:', data);
+                if (!data.values) throw new Error('No se encontraron datos en la hoja');
                 
-                const values = data.values;
-                if (!values || values.length === 0) {
-                    throw new Error('No se encontraron datos en la hoja');
-                }
-                
-                // Procesar datos (saltar la primera fila que son los headers)
-                const estudiantes = values.slice(1).map(row => ({
+                return data.values.slice(1).map(row => ({
                     name: row[0] || '',
                     rut: row[1] || '',
                     id: generateStudentId(row[1])
                 }));
-                
-                console.log(`✅ ${estudiantes.length} estudiantes cargados desde Google Sheets REAL`);
-                return estudiantes;
-                
             } catch (error) {
                 console.error('❌ Error cargando desde Google Sheets:', error);
-                console.log('📊 Usando datos de fallback local');
-                
-                // En caso de error, usar datos locales como fallback
-                if (currentColegio === 'guillermozañartu') {
-                    return getGuillermoZañartuData();
-                } else {
-                    return getExampleStudentData();
-                }
+                return getGuillermoZañartuData();
             }
         }
 
         async function loadExistingResponses() {
-            // **CORRECCIÓN: Añadir guarda para no ejecutar si no hay conexión**
-            if (!isFirebaseConnected) return;
-
+            if (!isFirebaseConnected || !auth.currentUser) return;
             try {
+                console.log('🔍 Buscando respuestas guardadas en Firebase...');
                 const docRef = db.collection('respuestas').doc(`${currentColegio}-${currentCurso}`);
                 const doc = await docRef.get();
-                
                 if (doc.exists) {
-                    const data = doc.data();
-                    // Aplicar respuestas existentes a la interfaz
-                    applyExistingResponses(data);
+                    console.log('✅ Respuestas encontradas. Aplicando...');
+                    applyExistingResponses(doc.data());
+                } else {
+                    console.log('ℹ️ No hay respuestas previas para este curso.');
                 }
-                
             } catch (error) {
-                console.error('Error cargando respuestas existentes (probablemente offline):', error);
-                // No mostrar error al usuario, simplemente continuar sin datos previos.
+                console.error('Error cargando respuestas existentes:', error);
             }
         }
 
-        // ========================================
-        // GUARDADO AUTOMÁTICO EN FIREBASE
-        // ========================================
-        
         async function saveResponseToFirebase(studentId, questionNumber, response) {
-            if (!autoSaveEnabled) return;
+            if (!autoSaveEnabled || !isFirebaseConnected || !auth.currentUser) return;
             
             try {
-                if (DEMO_MODE) {
-                    // Simular guardado en modo demo
-                    console.log(`💾 Guardando (DEMO): Estudiante ${studentId}, P${questionNumber} = ${response}`);
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    showAutoSaveIndicator();
-                    return;
-                }
-
-                if (!isFirebaseConnected) {
-                    console.warn('⚠️ Firebase no conectado, no se puede guardar');
-                    return;
-                }
-                
                 const docRef = db.collection('respuestas').doc(`${currentColegio}-${currentCurso}`);
-                
                 await docRef.set({
                     [`${studentId}_P${questionNumber}`]: response,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-                    colegio: currentColegio,
-                    curso: currentCurso
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 
-                console.log(`💾 Guardado en Firebase: ${studentId}_P${questionNumber} = ${response}`);
+                console.log(`💾 Guardado: ${studentId}_P${questionNumber} = ${response}`);
                 showAutoSaveIndicator();
-                
             } catch (error) {
                 console.error('❌ Error guardando en Firebase:', error);
-                showErrorMessage('Error al guardar automáticamente');
+                showErrorMessage('Error de guardado automático.');
+                autoSaveEnabled = false;
             }
         }
 
         async function syncAllDataToFirebase() {
+            if (!isFirebaseConnected || !auth.currentUser) {
+                showErrorMessage('No hay conexión a Firebase. No se puede sincronizar.');
+                return;
+            }
+            
+            showLoading('Sincronizando datos...');
             try {
-                if (DEMO_MODE) {
-                    showLoading('Sincronizando datos (DEMO)...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    hideLoading();
-                    showSuccessMessage('Datos sincronizados correctamente (DEMO)');
-                    return;
-                }
-
-                if (!isFirebaseConnected) {
-                    showErrorMessage('No hay conexión a Firebase');
-                    return;
-                }
-                
-                showLoading('Sincronizando datos...');
-                
                 const allResponses = {};
                 const rows = document.querySelectorAll('#students-table-body tr');
                 
@@ -1095,7 +998,6 @@
                         const cell = row.cells[i];
                         const input = cell.querySelector('.data-value');
                         const questionNumber = i - 1;
-                        
                         if (input && input.value) {
                             allResponses[`${student.id}_P${questionNumber}`] = input.value;
                         }
@@ -1108,143 +1010,53 @@
                     lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
                     colegio: currentColegio,
                     curso: currentCurso
-                });
+                }, { merge: true });
                 
                 hideLoading();
-                showSuccessMessage('Datos sincronizados correctamente');
-                
+                showSuccessMessage('¡Datos guardados correctamente!');
             } catch (error) {
                 hideLoading();
-                showErrorMessage('Error en la sincronización: ' + error.message);
+                showErrorMessage('Error al guardar: ' + error.message);
             }
         }
 
-        // ========================================
-        // FUNCIONES AUXILIARES
-        // ========================================
-        
+        function getGuillermoZañartuData() {
+            return DATOS_GUILLERMO_ZANARTU[currentCurso] || [];
+        }
+
         function getSpreadsheetId(colegio) {
-            // Mapear cada colegio a su archivo específico de Google Sheets
-            // Basado en los 11 colegios reales con sus 24 cursos totales
             const colegioToSpreadsheet = {
-                'guillermozañartu': '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU',           // 2 cursos - ¡TU HOJA REAL!
-                'benjaminclaro': '1DEF456-BENJAMINCLARO_ID',                 // 2 cursos
-                'republicacostarica': '1GHI789-REPUBLICACOSTARICA_ID',       // 2 cursos
-                'kallfu': '1JKL012-KALLFU_ID',                               // 1 curso
-                'juanmoya': '1MNO345-JUANMOYA_ID',                           // 2 cursos
-                'republicasiria': '1PQR678-REPUBLICASIRIA_ID',               // 4 cursos
-                'josetoribio': '1STU901-JOSETORIBIO_ID',                     // 2 cursos
-                'eduardofrei': '1VWX234-EDUARDOFREI_ID',                     // 3 cursos
-                'republicafrancia': '1YZA567-REPUBLICAFRANCIA_ID',           // 1 curso
-                'lenkafranulic': '1BCD890-LENKAFRANULIC_ID',                 // 2 cursos
-                'carmelasilva': '1EFG123-CARMELASILVA_ID',                   // 3 cursos
-                'demo': '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU'      // Usar tu hoja para demo también
+                'guillermozañartu': '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU',
+                'demo': '1HWyye8LeaQEVt02X3ersp8MkVRRZQoxBJ4R7C-i4mgU'
             };
-            
             return colegioToSpreadsheet[colegio.toLowerCase()] || colegioToSpreadsheet['demo'];
         }
 
-        function getSheetRange(curso) {
-            // Cada curso tiene su propia pestaña en el archivo del colegio
-            return `${curso}!A:B`;  // Ej: "2basico-a!A:B"
-        }
-
-        // Función para validar combinación colegio-curso
         function validarColegioYCurso(colegio, curso) {
-            // Definir exactamente qué cursos tiene cada colegio
             const colegiosCursos = {
-                'guillermozañartu': ['2basico-a', '2basico-b'],              // 2 cursos
-                'benjaminclaro': ['2basico-a', '2basico-b'],                 // 2 cursos  
-                'republicacostarica': ['2basico-a', '2basico-b'],            // 2 cursos
-                'kallfu': ['2basico-a'],                                     // 1 curso
-                'juanmoya': ['2basico-a', '2basico-b'],                      // 2 cursos
-                'republicasiria': ['2basico-a', '2basico-b', '2basico-c', '2basico-d'], // 4 cursos
-                'josetoribio': ['2basico-a', '2basico-b'],                   // 2 cursos
-                'eduardofrei': ['2basico-a', '2basico-b', '2basico-c'],      // 3 cursos
-                'republicafrancia': ['2basico-a'],                           // 1 curso
-                'lenkafranulic': ['2basico-a', '2basico-b'],                 // 2 cursos
-                'carmelasilva': ['2basico-a', '2basico-b', '2basico-c'],     // 3 cursos
+                'guillermozañartu': ['2basico-a', '2basico-b'],
                 'demo': ['2basico-a', '2basico-b']
             };
-            
             const cursosDelColegio = colegiosCursos[colegio.toLowerCase()];
-            
-            if (!cursosDelColegio) {
-                console.warn(`⚠️ Colegio '${colegio}' no reconocido`);
-                return false;
-            }
-            
-            if (!cursosDelColegio.includes(curso.toLowerCase())) {
-                console.warn(`⚠️ Curso '${curso}' no existe en colegio '${colegio}'`);
-                console.log(`Cursos disponibles para ${colegio}:`, cursosDelColegio);
-                return false;
-            }
-            
-            return true;
+            return cursosDelColegio && cursosDelColegio.includes(curso.toLowerCase());
         }
 
-        // Función para obtener nombres amigables de colegios
         function getNombreAmigableColegio(colegio) {
             const nombresAmigables = {
                 'guillermozañartu': 'Escuela Guillermo Zañartu Irigoyen',
-                'benjaminclaro': 'Colegio Benjamín Claro Velasco', 
-                'republicacostarica': 'Colegio República de Costa Rica',
-                'kallfu': 'Escuela Intercultural Kallfu Mapu',
-                'juanmoya': 'Colegio Juan Moya Morales',
-                'republicasiria': 'Liceo República de Siria',
-                'josetoribio': 'Colegio José Toribio Medina',
-                'eduardofrei': 'Colegio Presidente Eduardo Frei M.',
-                'republicafrancia': 'Colegio República de Francia',
-                'lenkafranulic': 'Liceo Lenka Franulic',
-                'carmelasilva': 'Liceo Carmela Silva Donoso',
                 'demo': 'Colegio Demo'
             };
-            
             return nombresAmigables[colegio.toLowerCase()] || colegio;
         }
 
-        // Nueva función: Detectar colegio y curso desde Moodle
         function detectarContextoMoodle() {
             const urlParams = new URLSearchParams(window.location.search);
-            
-            // Opción 1: Parámetros directos
-            let colegio = urlParams.get('colegio');
-            let curso = urlParams.get('curso');
-            
-            // Opción 2: Si Moodle pasa IDs, mapear a nombres
-            const courseId = urlParams.get('courseid');
-            
-            if (courseId && !colegio) {
-                // Mapear courseId de Moodle a colegio/curso específico
-                const moodleCourseMapping = {
-                    // Escuela Guillermo Zañartu Irigoyen (2 cursos)
-                    '101': { colegio: 'guillermozañartu', curso: '2basico-a' },
-                    '102': { colegio: 'guillermozañartu', curso: '2basico-b' },
-                    // ... resto de mappings
-                };
-                
-                const mapping = moodleCourseMapping[courseId];
-                if (mapping) {
-                    colegio = mapping.colegio;
-                    curso = mapping.curso;
-                } else {
-                    console.warn(`⚠️ CourseId ${courseId} no mapeado`);
-                }
-            }
-            
-            // CORRECCIÓN: Si no hay parámetros, usar guillermozañartu en lugar de demo
-            colegio = colegio || 'guillermozañartu';
-            curso = curso || '2basico-a';
-            
-            // Validar que la combinación sea correcta
+            let colegio = urlParams.get('colegio') || 'guillermozañartu';
+            let curso = urlParams.get('curso') || '2basico-a';
             if (!validarColegioYCurso(colegio, curso)) {
-                console.error(`❌ Combinación inválida: ${colegio} - ${curso}`);
-                // Usar Guillermo Zañartu como valores seguros
                 colegio = 'guillermozañartu';
                 curso = '2basico-a';
             }
-            
-            console.log('🎯 Contexto final detectado:', { colegio, curso });
             return { colegio, curso };
         }
 
@@ -1252,53 +1064,37 @@
             return rut.replace(/[^0-9kK]/g, '').toLowerCase();
         }
 
-        function getExampleStudentData() {
-            return [
-                { name: "Maximiliano Andrés Aceitón Hernández", rut: "26045838-8", id: "260458388" },
-                { name: "Constanza Andrea Acevedo Rojas", rut: "25495346-6", id: "254953466" },
-                { name: "Víctor Patricio Aedo Becerra", rut: "26114883-8", id: "261148838" },
-                { name: "Antonia Sofía Avendaño Jiménez", rut: "25964073-3", id: "259640733" },
-                { name: "Martin Antonio Blanca Gutiérrez", rut: "25926919-9", id: "259269199" },
-                { name: "Kataleia Francesca Castro Villanueva", rut: "26095657-4", id: "260956574" },
-                { name: "Lía Isidora Cleary Villarroel", rut: "25779581-0", id: "257795810" },
-                { name: "Luana Valentina Cuyuche Del Carpio", rut: "25839768-1", id: "258397681" },
-                { name: "Gaspar Ignacio Doren Parada", rut: "25982072-3", id: "259820723" },
-                { name: "Mateo de Jesús Herrera Ferrer", rut: "26731519-1", id: "267315191" },
-                { name: "Tomas Alonso Herrera González", rut: "25918404-5", id: "259184045" },
-                { name: "Mía Alejandra Miqueles Jaque", rut: "25796362-4", id: "257963624" },
-                { name: "Natalia Andreina Montes de Oca Altuve", rut: "26907785-9", id: "269077859" },
-                { name: "Jacobo Montoya Martinez", rut: "100756019-9", id: "1007560199" },
-                { name: "Emilio Ezequiel Ollarce Jeria", rut: "26063479-8", id: "260634798" },
-                { name: "Atenea Orellana Romeo", rut: "26134235-9", id: "261342359" },
-                { name: "Dante Alejandro Páez Moya", rut: "25730068-4", id: "257300684" },
-            ];
-        }
-
         function applyExistingResponses(data) {
             Object.keys(data).forEach(key => {
-                if (key.includes('_P')) {
-                    const [studentId, questionKey] = key.split('_P');
-                    const questionNumber = parseInt(questionKey);
-                    const response = data[key];
+                if (!key.includes('_P')) return;
+                const [studentId, questionKey] = key.split('_P');
+                const questionNumber = parseInt(questionKey);
+                const response = data[key];
+                const studentIndex = studentData.findIndex(s => s.id === studentId);
+                if (studentIndex === -1) return;
+                
+                const row = document.querySelectorAll('#students-table-body tr')[studentIndex];
+                if (!row) return;
+                
+                const cell = row.cells[questionNumber + 1];
+                if (!cell) return;
+
+                const input = cell.querySelector('.data-value');
+                if (input) input.value = response;
+                
+                if (cell.dataset.type === 'alt') {
+                    const buttons = cell.querySelectorAll('.alt-btn');
+                    const omissionMark = cell.querySelector('.omission-mark');
+                    buttons.forEach(b => b.classList.remove('selected'));
                     
-                    // Encontrar la celda correspondiente y aplicar la respuesta
-                    const studentIndex = studentData.findIndex(s => s.id === studentId);
-                    if (studentIndex !== -1) {
-                        const row = document.querySelectorAll('#students-table-body tr')[studentIndex];
-                        if (row) {
-                            const cell = row.cells[questionNumber + 1]; // +1 porque la primera columna es el nombre
-                            if (cell) {
-                                const input = cell.querySelector('.data-value');
-                                if (input) {
-                                    input.value = response;
-                                    // Aplicar visualización para alternativas
-                                    if (cell.dataset.type === 'alt' && ['A', 'B', 'C'].includes(response)) {
-                                        const button = cell.querySelector(`[data-value="${response}"]`);
-                                        if (button) button.classList.add('selected');
-                                    }
-                                }
-                            }
-                        }
+                    if (response === 'O') {
+                        buttons.forEach(b => b.style.display = 'none');
+                        omissionMark.style.display = 'block';
+                    } else if (['A', 'B', 'C'].includes(response)) {
+                        buttons.forEach(b => b.style.display = 'flex');
+                        omissionMark.style.display = 'none';
+                        const button = cell.querySelector(`[data-value="${response}"]`);
+                        if (button) button.classList.add('selected');
                     }
                 }
             });
@@ -1306,11 +1102,7 @@
 
         function updateConnectionStatus(elementId, connected) {
             const element = document.getElementById(elementId);
-            if (connected) {
-                element.classList.add('connected');
-            } else {
-                element.classList.remove('connected');
-            }
+            if(element) element.classList.toggle('connected', connected);
         }
 
         function showLoading(message) {
@@ -1345,53 +1137,8 @@
             indicator.classList.add('show');
             setTimeout(() => indicator.classList.remove('show'), 2000);
         }
-
-        // ========================================
-        // INICIALIZACIÓN AL CARGAR LA PÁGINA
-        // ========================================
         
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('📄 Página cargada, iniciando conexiones...');
-            
-            // En modo demo, inicializar inmediatamente
-            if (DEMO_MODE) {
-                console.log('🚀 Iniciando en modo DEMO');
-                initializeConnections();
-                return;
-            }
-            
-            // Verificar que Firebase SDK esté disponible
-            if (typeof firebase === 'undefined') {
-                console.error('❌ Firebase SDK no está disponible');
-                console.log('🔄 Esperando carga de Firebase...');
-                
-                // Esperar hasta 5 segundos por Firebase
-                let attempts = 0;
-                const checkFirebase = setInterval(() => {
-                    attempts++;
-                    if (typeof firebase !== 'undefined') {
-                        console.log('✅ Firebase SDK disponible después de ' + attempts + ' intentos');
-                        clearInterval(checkFirebase);
-                        initializeConnections();
-                    } else if (attempts >= 50) { // 5 segundos
-                        console.log('⚠️ Firebase SDK no disponible, activando modo DEMO');
-                        clearInterval(checkFirebase);
-                        // Cambiar a modo demo automáticamente
-                        window.DEMO_MODE = true;
-                        initializeConnections();
-                    }
-                }, 100);
-                
-                return;
-            }
-            
-            console.log('✅ Firebase SDK disponible');
-            
-            // Pequeña pausa para asegurar que todos los scripts estén cargados
-            setTimeout(() => {
-                initializeConnections();
-            }, 100);
-        });
+        document.addEventListener('DOMContentLoaded', initializeConnections);
 
         function initializeTable(studentData) {
             const tableBody = document.getElementById('students-table-body');
@@ -1408,6 +1155,7 @@
                     cell.classList.add('active-cell');
                     cell.parentElement.classList.add('active-row');
                     activeCell = cell;
+                    cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
                 } else {
                     activeCell = null;
                 }
@@ -1416,24 +1164,12 @@
             function populateTable() {
                 studentData.forEach((student) => {
                     const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td class="sticky-col student-cell">${student.name}</td>
-                        <td class="rut-cell">${student.rut}</td>
-                    `;
-
+                    row.innerHTML = `<td class="sticky-col student-cell">${student.name}</td><td class="rut-cell">${student.rut}</td>`;
                     for (let i = 1; i <= 20; i++) {
                         const cell = document.createElement('td');
                         cell.dataset.type = preguntas_3_alt.includes(i) ? 'alt' : 'score';
-                        
                         if (cell.dataset.type === 'alt') {
-                            cell.innerHTML = `
-                                <input type="hidden" class="data-value">
-                                <div class="alt-group">
-                                    <span class="omission-mark" style="display: none;">O</span>
-                                    <div class="alt-btn" data-value="A">A</div>
-                                    <div class="alt-btn" data-value="B">B</div>
-                                    <div class="alt-btn" data-value="C">C</div>
-                                </div>`;
+                            cell.innerHTML = `<input type="hidden" class="data-value"><div class="alt-group"><span class="omission-mark" style="display: none;">O</span><div class="alt-btn" data-value="A">A</div><div class="alt-btn" data-value="B">B</div><div class="alt-btn" data-value="C">C</div></div>`;
                         } else {
                             cell.innerHTML = `<input type="number" min="0" max="5" class="score-input data-value">`;
                         }
@@ -1446,191 +1182,162 @@
             function advanceToNextCell(cell) {
                 if (!cell) return null;
                 let nextCell = cell.nextElementSibling;
-                if (nextCell && nextCell.dataset.type) {
-                    return nextCell;
-                } else {
-                    const currentRow = cell.parentElement;
-                    const nextRow = currentRow.nextElementSibling;
-                    if (nextRow) {
-                        return nextRow.querySelector('td[data-type]');
-                    }
-                }
-                return null;
+                if (nextCell && nextCell.dataset.type) return nextCell;
+                
+                const nextRow = cell.parentElement.nextElementSibling;
+                return nextRow ? nextRow.querySelector('td[data-type]') : null;
             }
             
             function resetCell(cell) {
-                 if (!cell || cell.dataset.type !== 'alt') return cell;
-                const hiddenInput = cell.querySelector('input.data-value');
-                const buttons = cell.querySelectorAll('.alt-btn');
-                const omissionMark = cell.querySelector('.omission-mark');
+                if (!cell) return;
+                const input = cell.querySelector('.data-value');
+                if (input) input.value = '';
 
-                if (omissionMark) omissionMark.style.display = 'none';
-                if (hiddenInput) hiddenInput.value = '';
-                buttons.forEach(btn => {
-                    btn.classList.remove('selected');
-                    btn.style.display = 'flex';
-                });
-                return cell;
-            }
-
-            function handleOmission(cell) {
-                if (!cell || cell.dataset.type !== 'alt') return cell;
-                const hiddenInput = cell.querySelector('input.data-value');
-                const buttons = cell.querySelectorAll('.alt-btn');
-                const omissionMark = cell.querySelector('.omission-mark');
-                
-                buttons.forEach(btn => {
-                    btn.classList.remove('selected');
-                    btn.style.display = 'none';
-                });
-                if (omissionMark) omissionMark.style.display = 'block';
-                if (hiddenInput) hiddenInput.value = 'O';
-
-                return advanceToNextCell(cell);
-            }
-
-            function handleCellSelection(cell, value) {
-                if (!cell || cell.dataset.type !== 'alt') return cell;
-                const hiddenInput = cell.querySelector('input.data-value');
-                const buttons = cell.querySelectorAll('.alt-btn');
-                
-                resetCell(cell);
-
-                const selectedBtn = Array.from(buttons).find(btn => btn.dataset.value === value);
-                if (selectedBtn) {
-                    selectedBtn.classList.add('selected');
-                    if(hiddenInput) hiddenInput.value = value;
+                if (cell.dataset.type === 'alt') {
+                    cell.querySelector('.omission-mark').style.display = 'none';
+                    cell.querySelectorAll('.alt-btn').forEach(btn => {
+                        btn.classList.remove('selected');
+                        btn.style.display = 'flex';
+                    });
                 }
+            }
+
+            function handleResponse(cell, response) {
+                if (!cell || cell.dataset.type !== 'alt') return cell;
+                resetCell(cell);
+                cell.querySelector('input.data-value').value = response;
+                
+                if(response === 'O') {
+                    cell.querySelector('.omission-mark').style.display = 'block';
+                    cell.querySelectorAll('.alt-btn').forEach(btn => btn.style.display = 'none');
+                } else {
+                    const selectedBtn = cell.querySelector(`[data-value="${response}"]`);
+                    if (selectedBtn) selectedBtn.classList.add('selected');
+                }
+
+                const studentIndex = cell.parentElement.rowIndex - 1;
+                const questionNumber = cell.cellIndex - 1;
+                if (studentData[studentIndex]) {
+                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, response);
+                }
+
                 return advanceToNextCell(cell);
             }
             
+            async function clearAllData() {
+                showLoading('Limpiando datos...');
+                try {
+                    // 1. Delete the document from Firebase
+                    if (isFirebaseConnected && auth.currentUser) {
+                        const docRef = db.collection('respuestas').doc(`${currentColegio}-${currentCurso}`);
+                        await docRef.delete();
+                        console.log('✅ Documento eliminado de Firebase.');
+                    }
+
+                    // 2. Clear the UI
+                    const rows = document.querySelectorAll('#students-table-body tr');
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td[data-type]');
+                        cells.forEach(cell => {
+                            resetCell(cell);
+                        });
+                    });
+
+                    // 3. Reset active cell
+                    const firstCell = document.querySelector('#students-table-body tr td[data-type]');
+                    if (firstCell) {
+                        setActiveCell(firstCell);
+                    }
+                    
+                    hideLoading();
+                    showSuccessMessage('Todos los datos han sido limpiados.');
+
+                } catch (error) {
+                    hideLoading();
+                    showErrorMessage('Error al limpiar los datos: ' + error.message);
+                    console.error('Error en clearAllData:', error);
+                }
+            }
+
+            function showConfirmationModal() {
+                const modal = document.getElementById('confirmation-modal');
+                modal.classList.add('show');
+
+                return new Promise((resolve) => {
+                    document.getElementById('modal-confirm-btn').onclick = () => {
+                        modal.classList.remove('show');
+                        resolve(true);
+                    };
+                    document.getElementById('modal-cancel-btn').onclick = () => {
+                        modal.classList.remove('show');
+                        resolve(false);
+                    };
+                });
+            }
+
+
             tableBody.addEventListener('click', function(e) {
                 const cell = e.target.closest('td[data-type]');
                 if (!cell) return;
                 
                 setActiveCell(cell);
-                const isOmitted = cell.querySelector('.omission-mark')?.style.display === 'block';
-
+                
                 if (e.target.classList.contains('alt-btn')) {
                     const clickedButton = e.target;
-                    let newActiveCell;
-                    if (clickedButton.classList.contains('selected')) {
-                        newActiveCell = handleOmission(cell);
-                    } else {
-                        newActiveCell = handleCellSelection(cell, clickedButton.dataset.value);
-                    }
-                    
-                    // Guardar en Firebase
-                    const studentIndex = Array.from(cell.parentElement.parentElement.children).indexOf(cell.parentElement) - 1;
-                    const questionNumber = Array.from(cell.parentElement.children).indexOf(cell) - 1;
-                    if (studentData[studentIndex]) {
-                        const response = cell.querySelector('.data-value').value;
-                        saveResponseToFirebase(studentData[studentIndex].id, questionNumber, response);
-                    }
-                    
+                    const isSelected = clickedButton.classList.contains('selected');
+                    const newActiveCell = handleResponse(cell, isSelected ? 'O' : clickedButton.dataset.value);
                     setActiveCell(newActiveCell);
-                } else if (isOmitted) {
-                    const sameCell = resetCell(cell);
-                    setActiveCell(sameCell);
+                } else if (cell.querySelector('.omission-mark')?.style.display === 'block') {
+                    const studentIndex = cell.parentElement.rowIndex - 1;
+                    const questionNumber = cell.cellIndex - 1;
+                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, '');
+                    setActiveCell(resetCell(cell));
                 }
             });
             
             const terminalInput = document.getElementById('terminal-input');
             const terminalFeedback = document.getElementById('terminal-feedback');
-            const terminalVisualFeedback = document.getElementById('terminal-visual-feedback');
 
-            function validateAndRenderInput() {
+            function processTerminalInput() {
                 if (!activeCell) {
-                    terminalVisualFeedback.innerHTML = '';
-                    return false;
+                    terminalFeedback.textContent = "Error: No hay celda activa.";
+                    return;
                 }
-                const input = terminalInput.value.toUpperCase();
-                let visualHtml = '';
-                let isValid = true;
+                
+                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-CO])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
                 let currentCell = activeCell;
-
-                const expandedInput = input.replace(/([A-DO])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+                let processedCount = 0;
 
                 for (const char of expandedInput) {
-                    if (!currentCell) {
-                        visualHtml += `<span class="invalid-char">${char}</span>`;
-                        isValid = false;
-                        continue;
-                    }
-                    
-                    const cellType = currentCell.dataset.type;
-                    if (cellType === 'alt' && ['A', 'B', 'C'].includes(char)) {
-                        visualHtml += `<span class="valid-char">${char}</span>`;
-                    } else if (cellType === 'alt' && char === 'O') {
-                        visualHtml += `<span class="omitted-char">${char}</span>`;
-                    } else if (cellType === 'score' && !isNaN(parseInt(char))) {
-                        visualHtml += `<span class="valid-char">${char}</span>`;
-                    } else {
-                        visualHtml += `<span class="invalid-char">${char}</span>`;
-                        isValid = false;
-                    }
-                    currentCell = advanceToNextCell(currentCell);
-                }
-                terminalVisualFeedback.innerHTML = visualHtml;
-                return isValid;
-            }
-
-            function processInput(inputString) {
-                if (!activeCell) return { error: "Error: No hay una celda activa.", count: 0 };
-                
-                if (!validateAndRenderInput()) {
-                    return { error: "Error: La cadena contiene respuestas inválidas (en rojo).", count: 0 };
-                }
-
-                let input = inputString.toUpperCase().trim().replace(/([A-DO])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
-                let responses = input.split(/[\s,]+/).join('').split('');
-                let processedCount = 0;
-                let currentCell = activeCell;
-
-                for (const response of responses) {
                     if (!currentCell) break;
-                    
-                    if (currentCell.dataset.type === 'alt') {
-                        if (['A', 'B', 'C'].includes(response)) {
-                            currentCell = handleCellSelection(currentCell, response);
-                            processedCount++;
-                        } else if (response === 'O') {
-                            currentCell = handleOmission(currentCell);
-                            processedCount++;
-                        }
+                    if (currentCell.dataset.type === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) {
+                        currentCell = handleResponse(currentCell, char);
+                        processedCount++;
                     }
                 }
+                
                 setActiveCell(currentCell);
-                return { error: null, count: processedCount };
+                terminalFeedback.textContent = `✓ ${processedCount} respuestas procesadas.`;
+                terminalInput.value = '';
+                terminalVisualFeedback.innerHTML = '';
+                setTimeout(() => terminalFeedback.textContent = '', 4000);
             }
-
-            terminalInput.addEventListener('input', validateAndRenderInput);
 
             terminalInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    const result = processInput(terminalInput.value);
-                    terminalFeedback.textContent = result.error || `✓ ${result.count} respuestas procesadas.`;
-                    if (result.error) {
-                        terminalInput.focus();
-                    } else {
-                        terminalInput.value = '';
-                        terminalVisualFeedback.innerHTML = '';
-                    }
-                    setTimeout(() => terminalFeedback.textContent = '', 4000);
+                    processTerminalInput();
                 }
             });
             
             const voiceBtn = document.getElementById('voice-btn');
             const voiceFeedback = document.getElementById('voice-feedback');
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            let recognition;
-
             if (SpeechRecognition) {
-                recognition = new SpeechRecognition();
+                const recognition = new SpeechRecognition();
                 recognition.continuous = false;
                 recognition.lang = 'es-ES';
-                recognition.interimResults = true;
+                recognition.interimResults = false;
                 voiceBtn.addEventListener('click', () => {
                     if (voiceBtn.classList.contains('listening')) recognition.stop();
                     else recognition.start();
@@ -1638,106 +1345,63 @@
                 recognition.onstart = () => { voiceBtn.classList.add('listening'); voiceFeedback.textContent = "Escuchando..."; };
                 recognition.onend = () => { voiceBtn.classList.remove('listening'); voiceFeedback.textContent = "Micrófono desactivado."; };
                 recognition.onresult = (event) => {
-                    let transcript = Array.from(event.results).map(result => result[0].transcript).join('');
+                    const transcript = event.results[0][0].transcript;
                     voiceFeedback.textContent = `Detectado: "${transcript}"`;
-                    if (event.results[event.results.length - 1].isFinal) {
-                        const result = processInput(transcript);
-                        voiceFeedback.textContent = result.error || `✓ ${result.count} respuestas procesadas.`;
-                    }
+                    terminalInput.value = transcript;
+                    processTerminalInput();
                 };
-                recognition.onerror = (event) => { voiceFeedback.textContent = `Error de voz: ${event.error}`; };
             } else {
                 voiceBtn.disabled = true;
-                voiceFeedback.textContent = "Reconocimiento de voz no soportado.";
             }
-
+            
             function downloadCSV() {
-                const headers = ['RUT', 'Nombre Completo'];
-                for (let i = 1; i <= 20; i++) headers.push(`P${i}`);
+                const headers = ['RUT', 'Nombre Completo', ...Array.from({length: 20}, (_, i) => `P${i + 1}`)];
                 let csvContent = headers.join(',') + '\n';
-                const rows = tableBody.querySelectorAll('tr');
-                rows.forEach(row => {
+                tableBody.querySelectorAll('tr').forEach(row => {
                     const studentName = row.cells[0].textContent;
                     const studentRut = row.cells[1].textContent;
                     let csvRow = [`"${studentRut}"`, `"${studentName}"`];
                     for (let i = 2; i < row.cells.length; i++) {
-                        const cell = row.cells[i];
-                        const input = cell.querySelector('.data-value');
-                        csvRow.push(input ? input.value : '');
+                        csvRow.push(row.cells[i].querySelector('.data-value')?.value || '');
                     }
                     csvContent += csvRow.join(',') + '\n';
                 });
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', `respuestas_ejemplo.csv`);
-                document.body.appendChild(link);
+                link.href = URL.createObjectURL(blob);
+                link.download = `respuestas_${currentColegio}_${currentCurso}.csv`;
                 link.click();
-                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
             }
             
             populateTable();
-            const firstCell = tableBody.querySelector('td[data-type]');
-            if (firstCell) setActiveCell(firstCell);
+            if (tableBody.rows.length > 0) {
+                setActiveCell(tableBody.rows[0].cells[2]);
+            }
             document.getElementById('download-csv-btn').addEventListener('click', downloadCSV);
             document.getElementById('sync-firebase-btn').addEventListener('click', syncAllDataToFirebase);
+            document.getElementById('clear-all-btn').addEventListener('click', async () => {
+                const confirmed = await showConfirmationModal();
+                if (confirmed) {
+                    clearAllData();
+                }
+            });
 
-            // --- LÓGICA DE NAVEGACIÓN ---
             const prevStudentBtn = document.getElementById('prev-student-btn');
             const nextStudentBtn = document.getElementById('next-student-btn');
-            const scrollLeftBtn = document.getElementById('scroll-left-btn');
-            const scrollRightBtn = document.getElementById('scroll-right-btn');
-            const tableContainer = document.getElementById('table-container');
-            const scrollNav = document.getElementById('scroll-nav');
-
+            
             prevStudentBtn.addEventListener('click', () => {
                 if (!activeCell) return;
-                const currentRow = activeCell.parentElement;
-                const prevRow = currentRow.previousElementSibling;
-                if (prevRow) {
-                    const firstCellInPrevRow = prevRow.querySelector('td[data-type]');
-                    if (firstCellInPrevRow) setActiveCell(firstCellInPrevRow);
-                }
+                const prevRow = activeCell.parentElement.previousElementSibling;
+                if (prevRow) setActiveCell(prevRow.cells[2]);
             });
 
             nextStudentBtn.addEventListener('click', () => {
                 if (!activeCell) return;
-                const currentRow = activeCell.parentElement;
-                const nextRow = currentRow.nextElementSibling;
-                if (nextRow) {
-                    const firstCellInNextRow = nextRow.querySelector('td[data-type]');
-                    if (firstCellInNextRow) setActiveCell(firstCellInNextRow);
-                }
+                const nextRow = activeCell.parentElement.nextElementSibling;
+                if (nextRow) setActiveCell(nextRow.cells[2]);
             });
-
-            scrollLeftBtn.addEventListener('click', () => {
-                tableContainer.scrollLeft -= 300;
-            });
-
-            scrollRightBtn.addEventListener('click', () => {
-                tableContainer.scrollLeft += 300;
-            });
-
-            function updateScrollButtons() {
-                const { scrollLeft, scrollWidth, clientWidth } = tableContainer;
-                
-                if (scrollWidth > clientWidth) {
-                    scrollNav.style.display = 'flex';
-                } else {
-                    scrollNav.style.display = 'none';
-                }
-                
-                scrollLeftBtn.disabled = scrollLeft <= 0;
-                scrollRightBtn.disabled = scrollLeft >= (scrollWidth - clientWidth - 1);
-            }
-
-            tableContainer.addEventListener('scroll', updateScrollButtons);
-            
-            // Usar ResizeObserver para detectar cambios en el tamaño del contenedor
-            const resizeObserver = new ResizeObserver(updateScrollButtons);
-            resizeObserver.observe(tableContainer);
         }
     </script>
 </body>
-</html> 
+</html>
