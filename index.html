@@ -334,7 +334,7 @@
             outline-offset: -2px;
         }
 
-        .alt-group {
+        .answer-group {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -343,7 +343,7 @@
             min-height: 2rem;
         }
 
-        .alt-btn {
+        .answer-btn {
             width: 1.75rem;
             height: 1.75rem;
             display: flex;
@@ -359,32 +359,14 @@
             transition: all 0.2s ease;
         }
 
-        .alt-btn:hover {
+        .answer-btn:hover {
             background: #f9fafb;
         }
 
-        .alt-btn.selected {
+        .answer-btn.selected {
             background: #3b82f6;
             color: white;
             border-color: #3b82f6;
-        }
-
-        .omission-mark {
-            position: absolute;
-            font-size: 1.25rem;
-            color: #9ca3af;
-            font-weight: bold;
-            z-index: 5;
-            user-select: none;
-            pointer-events: none;
-        }
-
-        .score-input {
-            width: 4rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 0.375rem;
-            border: 1px solid #d1d5db;
-            text-align: center;
         }
 
         .download-section {
@@ -894,7 +876,8 @@
                 totalQuestions: 20,
                 questionTypes: {
                     alt: [1, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 19],
-                    score: [2, 11, 14, 16, 17, 18, 20] 
+                    score: [11, 14, 16, 17, 18, 20],
+                    score210: [2]
                 }
             }
         };
@@ -928,18 +911,15 @@
             let curso = urlParams.get('curso');
             let prueba = urlParams.get('prueba');
 
-            // --- MODO DE PRUEBA / COMPATIBILIDAD ---
             if (!colegio || !curso) {
                 console.warn("MODO DE PRUEBA: No se encontraron parámetros de URL. Usando valores por defecto.");
                 colegio = 'guillermozañartu';
                 curso = '2basico-a';
             }
             
-            // Si no viene el parámetro 'prueba', asume 'unidad1' por defecto para compatibilidad.
             if (!prueba) {
                 prueba = 'unidad1';
             }
-            // --- FIN MODO DE PRUEBA ---
 
             if (!APP_CONFIG[colegio] || !APP_CONFIG[colegio].courses[curso] || !TEST_CONFIGS[prueba]) {
                 throw new Error(`La combinación de colegio '${colegio}', curso '${curso}' o prueba '${prueba}' no es válida.`);
@@ -1173,21 +1153,11 @@
                 const input = cell.querySelector('.data-value');
                 if (input) input.value = response;
                 
-                if (cell.dataset.type === 'alt') {
-                    const buttons = cell.querySelectorAll('.alt-btn');
-                    const omissionMark = cell.querySelector('.omission-mark');
-                    buttons.forEach(b => b.classList.remove('selected'));
-                    
-                    if (response === 'O') {
-                        buttons.forEach(b => b.style.display = 'none');
-                        omissionMark.style.display = 'block';
-                    } else if (['A', 'B', 'C'].includes(response)) {
-                        buttons.forEach(b => b.style.display = 'flex');
-                        omissionMark.style.display = 'none';
-                        const button = cell.querySelector(`[data-value="${response}"]`);
-                        if (button) button.classList.add('selected');
-                    }
-                }
+                const buttons = cell.querySelectorAll('.answer-btn');
+                buttons.forEach(b => b.classList.remove('selected'));
+                const button = cell.querySelector(`[data-value="${response}"]`);
+                if (button) button.classList.add('selected');
+
             });
         }
 
@@ -1287,14 +1257,22 @@
                     row.innerHTML = `<td class="sticky-col student-cell">${student.name}</td><td class="rut-cell">${student.rut}</td>`;
                     for (let i = 1; i <= currentTestConfig.totalQuestions; i++) {
                         const cell = document.createElement('td');
-                        const qType = currentTestConfig.questionTypes.alt.includes(i) ? 'alt' : 'score';
+                        let qType = 'alt'; // Default
+                        if(currentTestConfig.questionTypes.score.includes(i)) qType = 'score';
+                        if(currentTestConfig.questionTypes.score210 && currentTestConfig.questionTypes.score210.includes(i)) qType = 'score210';
+                        
                         cell.dataset.type = qType;
 
+                        let buttonsHTML = '';
                         if (qType === 'alt') {
-                            cell.innerHTML = `<input type="hidden" class="data-value"><div class="alt-group"><span class="omission-mark" style="display: none;">O</span><div class="alt-btn" data-value="A">A</div><div class="alt-btn" data-value="B">B</div><div class="alt-btn" data-value="C">C</div></div>`;
-                        } else {
-                            cell.innerHTML = `<input type="number" min="0" max="1" class="score-input data-value">`;
+                            buttonsHTML = `<div class="answer-btn" data-value="A">A</div><div class="answer-btn" data-value="B">B</div><div class="answer-btn" data-value="C">C</div><div class="answer-btn" data-value="O">O</div>`;
+                        } else if (qType === 'score') {
+                            buttonsHTML = `<div class="answer-btn" data-value="1">1</div><div class="answer-btn" data-value="0">0</div><div class="answer-btn" data-value="O">O</div>`;
+                        } else if (qType === 'score210') {
+                            buttonsHTML = `<div class="answer-btn" data-value="2">2</div><div class="answer-btn" data-value="1">1</div><div class="answer-btn" data-value="0">0</div><div class="answer-btn" data-value="O">O</div>`;
                         }
+                        
+                        cell.innerHTML = `<input type="hidden" class="data-value"><div class="answer-group">${buttonsHTML}</div>`;
                         row.appendChild(cell);
                     }
                     tableBody.appendChild(row);
@@ -1317,56 +1295,28 @@
                 if (!cell) return;
                 const input = cell.querySelector('.data-value');
                 if (input) input.value = '';
-
-                if (cell.dataset.type === 'alt') {
-                    cell.querySelector('.omission-mark').style.display = 'none';
-                    cell.querySelectorAll('.alt-btn').forEach(btn => {
-                        btn.classList.remove('selected');
-                        btn.style.display = 'flex';
-                    });
-                }
+                cell.querySelectorAll('.answer-btn').forEach(btn => btn.classList.remove('selected'));
             }
 
-            function handleAltResponse(cell, response) {
-                if (!cell || cell.dataset.type !== 'alt') return cell;
-                resetCell(cell);
-                cell.querySelector('input.data-value').value = response;
+            function handleButtonResponse(cell, response) {
+                if (!cell) return cell;
                 
-                if(response === 'O') {
-                    cell.querySelector('.omission-mark').style.display = 'block';
-                    cell.querySelectorAll('.alt-btn').forEach(btn => btn.style.display = 'none');
-                } else {
-                    const selectedBtn = cell.querySelector(`[data-value="${response}"]`);
+                const isSelected = cell.querySelector(`[data-value="${response}"]`)?.classList.contains('selected');
+                
+                resetCell(cell);
+                
+                const finalResponse = isSelected ? '' : response;
+                cell.querySelector('input.data-value').value = finalResponse;
+                
+                if (finalResponse) {
+                    const selectedBtn = cell.querySelector(`[data-value="${finalResponse}"]`);
                     if (selectedBtn) selectedBtn.classList.add('selected');
                 }
 
                 const studentIndex = cell.parentElement.rowIndex - 1;
                 const questionNumber = cell.cellIndex - 1;
                 if (studentData[studentIndex]) {
-                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, response);
-                }
-
-                return advanceToNextCell(cell);
-            }
-
-            function handleScoreResponse(cell, value) {
-                if (!cell || cell.dataset.type !== 'score') return cell;
-                
-                const inputElement = cell.querySelector('.data-value');
-                if (!inputElement) return cell;
-
-                const numericValue = parseInt(value);
-                if (isNaN(numericValue) || (numericValue !== 0 && numericValue !== 1)) {
-                    inputElement.value = '';
-                    return cell;
-                }
-
-                inputElement.value = numericValue;
-                
-                const studentIndex = cell.parentElement.rowIndex - 1;
-                const questionNumber = cell.cellIndex - 1;
-                if (studentData[studentIndex]) {
-                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, numericValue.toString());
+                    saveResponseToFirebase(studentData[studentIndex].id, questionNumber, finalResponse);
                 }
 
                 return advanceToNextCell(cell);
@@ -1400,33 +1350,18 @@
             }
 
             tableBody.addEventListener('click', function(e) {
-                const cell = e.target.closest('td[data-type]');
-                if (!cell) return;
-                setActiveCell(cell);
-                if (cell.dataset.type === 'alt' && e.target.classList.contains('alt-btn')) {
-                    const clickedButton = e.target;
-                    const isSelected = clickedButton.classList.contains('selected');
-                    const newActiveCell = handleAltResponse(cell, isSelected ? '' : clickedButton.dataset.value);
-                    setActiveCell(newActiveCell);
-                }
-            });
-
-            tableBody.addEventListener('input', function(e) {
-                const inputElement = e.target.closest('.score-input');
-                if (inputElement) {
-                    const cell = inputElement.closest('td[data-type="score"]');
+                const button = e.target.closest('.answer-btn');
+                if (button) {
+                    const cell = button.closest('td[data-type]');
                     if (cell) {
-                        const value = inputElement.value;
-                        if (value !== '' && value !== '0' && value !== '1') {
-                            inputElement.value = '';
-                            showErrorMessage('Solo se permite "0" o "1" para esta pregunta.');
-                        } else if (value) {
-                            const studentIndex = cell.parentElement.rowIndex - 1;
-                            const questionNumber = cell.cellIndex - 1;
-                            if (studentData[studentIndex]) {
-                                saveResponseToFirebase(studentData[studentIndex].id, questionNumber, value);
-                            }
-                        }
+                        setActiveCell(cell);
+                        const newActiveCell = handleButtonResponse(cell, button.dataset.value);
+                        setActiveCell(newActiveCell);
+                    }
+                } else {
+                    const cell = e.target.closest('td[data-type]');
+                    if (cell) {
+                        setActiveCell(cell);
                     }
                 }
             });
@@ -1466,10 +1401,14 @@
                         terminalVisualFeedback.appendChild(charSpan);
                         continue;
                     }
-                    if (tempSimulatedCell.dataset.type === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) {
-                        charSpan.classList.add('valid-char');
-                        tempSimulatedCell = advanceToNextCell(tempSimulatedCell);
-                    } else if (tempSimulatedCell.dataset.type === 'score' && ['0', '1'].includes(char)) {
+
+                    let isValidChar = false;
+                    const cellType = tempSimulatedCell.dataset.type;
+                    if (cellType === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) isValidChar = true;
+                    if (cellType === 'score' && ['1', '0', 'O'].includes(char)) isValidChar = true;
+                    if (cellType === 'score210' && ['2', '1', '0', 'O'].includes(char)) isValidChar = true;
+
+                    if(isValidChar) {
                         charSpan.classList.add('valid-char');
                         tempSimulatedCell = advanceToNextCell(tempSimulatedCell);
                     } else {
@@ -1488,7 +1427,7 @@
                     return;
                 }
                 
-                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-CO01])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-CO012])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
                 let currentCell = activeCell;
                 let errorDetected = false;
                 let remainingInput = '';
@@ -1501,15 +1440,14 @@
                     }
 
                     let isValidChar = false;
-                    if (currentCell.dataset.type === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) {
-                        currentCell = handleAltResponse(currentCell, char);
-                        isValidChar = true;
-                    } else if (currentCell.dataset.type === 'score' && ['0', '1'].includes(char)) {
-                        currentCell = handleScoreResponse(currentCell, char);
-                        isValidChar = true;
-                    }
+                    const cellType = currentCell.dataset.type;
+                    if (cellType === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) isValidChar = true;
+                    if (cellType === 'score' && ['1', '0', 'O'].includes(char)) isValidChar = true;
+                    if (cellType === 'score210' && ['2', '1', '0', 'O'].includes(char)) isValidChar = true;
 
-                    if (!isValidChar) {
+                    if (isValidChar) {
+                        currentCell = handleButtonResponse(currentCell, char);
+                    } else {
                         errorDetected = true;
                         remainingInput = expandedInput.substring(i);
                         break;
@@ -1542,10 +1480,10 @@
 
             function normalizeSpokenInput(text) {
                 return text.toLowerCase().trim()
-                    .replace(/uno/g, '1').replace(/cero/g, '0')
+                    .replace(/dos/g, '2').replace(/uno/g, '1').replace(/cero/g, '0')
                     .replace(/\ba\b/g, 'A').replace(/\bb\b/g, 'B')
                     .replace(/\bc\b/g, 'C').replace(/\bo\b/g, 'O')
-                    .replace(/[^ABC01O]/g, '');
+                    .replace(/[^ABC012O]/g, '');
             }
 
             if (SpeechRecognition) {
@@ -1712,7 +1650,7 @@
                             <li>Haz clic en el micrófono 🎤 para activarlo.</li>
                             <li>Habla <strong>CLARO y PAUSADO</strong>.</li>
                             <li>Di las letras individualmente: "A", "B", "C".</li>
-                            <li>Para números di: "uno", "cero".</li>
+                            <li>Para números di: "dos", "uno", "cero".</li>
                             <li>Presiona <strong>ENTER</strong> para aplicar las respuestas reconocidas.</li>
                         </ul>
                     </div>
