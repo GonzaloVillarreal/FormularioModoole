@@ -884,8 +884,9 @@
                 name: "Unidad 2",
                 totalQuestions: 20,
                 questionTypes: {
-                    alt: [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 14, 15, 17, 18, 20],
+                    alt4: [1, 2, 3, 4, 6, 7, 9, 10, 11, 12, 14, 15, 17, 18, 20], // Preguntas con A,B,C,D
                     score: [5, 8, 13, 16, 19],
+                    score210: []
                 }
             }
         };
@@ -919,18 +920,15 @@
             let curso = urlParams.get('curso');
             let prueba = urlParams.get('prueba');
 
-            // --- MODO DE PRUEBA / COMPATIBILIDAD ---
             if (!colegio || !curso) {
                 console.warn("MODO DE PRUEBA: No se encontraron parámetros de URL. Usando valores por defecto.");
                 colegio = 'guillermozañartu';
                 curso = '2basico-a';
             }
             
-            // Si no viene el parámetro 'prueba', asume 'unidad1' por defecto para compatibilidad.
             if (!prueba) {
                 prueba = 'unidad1';
             }
-            // --- FIN MODO DE PRUEBA ---
 
             if (!APP_CONFIG[colegio] || !APP_CONFIG[colegio].courses[curso] || !TEST_CONFIGS[prueba]) {
                 throw new Error(`La combinación de colegio '${colegio}', curso '${curso}' o prueba '${prueba}' no es válida.`);
@@ -1215,14 +1213,17 @@
             
             let activeCell = null;
 
-            // --- Generación Dinámica del Encabezado ---
             const headerRow = document.createElement('tr');
             headerRow.innerHTML = `<th class="sticky-col student-name-col">Nombre Completo</th><th>RUT</th>`;
             for (let i = 1; i <= currentTestConfig.totalQuestions; i++) {
                 const th = document.createElement('th');
                 th.textContent = `P${i}`;
                 let qTypeFound = false;
-                if (currentTestConfig.questionTypes.alt.includes(i)) {
+                if (currentTestConfig.questionTypes.alt && currentTestConfig.questionTypes.alt.includes(i)) {
+                    th.classList.add('blue-header');
+                    qTypeFound = true;
+                }
+                 if (currentTestConfig.questionTypes.alt4 && currentTestConfig.questionTypes.alt4.includes(i)) {
                     th.classList.add('blue-header');
                     qTypeFound = true;
                 }
@@ -1235,7 +1236,7 @@
                     qTypeFound = true;
                 }
                 if (!qTypeFound) {
-                     th.classList.add('blue-header'); // Default color
+                     th.classList.add('blue-header');
                 }
                 headerRow.appendChild(th);
             }
@@ -1279,7 +1280,8 @@
                     row.innerHTML = `<td class="sticky-col student-cell">${student.name}</td><td class="rut-cell">${student.rut}</td>`;
                     for (let i = 1; i <= currentTestConfig.totalQuestions; i++) {
                         const cell = document.createElement('td');
-                        let qType = 'alt'; // Default
+                        let qType = 'alt'; 
+                        if(currentTestConfig.questionTypes.alt4 && currentTestConfig.questionTypes.alt4.includes(i)) qType = 'alt4';
                         if(currentTestConfig.questionTypes.score && currentTestConfig.questionTypes.score.includes(i)) qType = 'score';
                         if(currentTestConfig.questionTypes.score210 && currentTestConfig.questionTypes.score210.includes(i)) qType = 'score210';
                         
@@ -1288,6 +1290,8 @@
                         let buttonsHTML = '';
                         if (qType === 'alt') {
                             buttonsHTML = `<div class="answer-btn" data-value="A">A</div><div class="answer-btn" data-value="B">B</div><div class="answer-btn" data-value="C">C</div><div class="answer-btn" data-value="O">O</div>`;
+                        } else if (qType === 'alt4') {
+                            buttonsHTML = `<div class="answer-btn" data-value="A">A</div><div class="answer-btn" data-value="B">B</div><div class="answer-btn" data-value="C">C</div><div class="answer-btn" data-value="D">D</div><div class="answer-btn" data-value="O">O</div>`;
                         } else if (qType === 'score') {
                             buttonsHTML = `<div class="answer-btn" data-value="1">1</div><div class="answer-btn" data-value="0">0</div><div class="answer-btn" data-value="O">O</div>`;
                         } else if (qType === 'score210') {
@@ -1381,7 +1385,6 @@
                         setActiveCell(newActiveCell);
                     }
                 } else {
-                    // Allow selecting empty cells
                     const cell = e.target.closest('td[data-type]');
                     if (cell) {
                         setActiveCell(cell);
@@ -1428,6 +1431,7 @@
                     let isValidChar = false;
                     const cellType = tempSimulatedCell.dataset.type;
                     if (cellType === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) isValidChar = true;
+                    if (cellType === 'alt4' && ['A', 'B', 'C', 'D', 'O'].includes(char)) isValidChar = true;
                     if (cellType === 'score' && ['1', '0', 'O'].includes(char)) isValidChar = true;
                     if (cellType === 'score210' && ['2', '1', '0', 'O'].includes(char)) isValidChar = true;
 
@@ -1450,7 +1454,7 @@
                     return;
                 }
                 
-                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-CO012])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
+                const expandedInput = terminalInput.value.toUpperCase().replace(/([A-DO012])\*(\d+)/g, (_, char, count) => char.repeat(parseInt(count)));
                 let currentCell = activeCell;
                 let errorDetected = false;
                 let remainingInput = '';
@@ -1464,13 +1468,12 @@
 
                     let isValidChar = false;
                     const cellType = currentCell.dataset.type;
-                    if (cellType === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) isValidChar = true;
-                    if (cellType === 'score' && ['1', '0', 'O'].includes(char)) isValidChar = true;
-                    if (cellType === 'score210' && ['2', '1', '0', 'O'].includes(char)) isValidChar = true;
-
-                    if (isValidChar) {
+                    if ((cellType === 'alt' && ['A', 'B', 'C', 'O'].includes(char)) || (cellType === 'alt4' && ['A', 'B', 'C', 'D', 'O'].includes(char)) || (cellType === 'score' && ['1', '0', 'O'].includes(char)) || (cellType === 'score210' && ['2', '1', '0', 'O'].includes(char))) {
                         currentCell = handleButtonResponse(currentCell, char);
-                    } else {
+                        isValidChar = true;
+                    }
+
+                    if (!isValidChar) {
                         errorDetected = true;
                         remainingInput = expandedInput.substring(i);
                         break;
@@ -1505,8 +1508,8 @@
                 return text.toLowerCase().trim()
                     .replace(/dos/g, '2').replace(/uno/g, '1').replace(/cero/g, '0')
                     .replace(/\ba\b/g, 'A').replace(/\bb\b/g, 'B')
-                    .replace(/\bc\b/g, 'C').replace(/\bo\b/g, 'O')
-                    .replace(/[^ABC012O]/g, '');
+                    .replace(/\bc\b/g, 'C').replace(/\bd\b/g, 'D').replace(/\bo\b/g, 'O')
+                    .replace(/[^ABCD012O]/g, '');
             }
 
             if (SpeechRecognition) {
@@ -1577,7 +1580,7 @@
                     <h2>2. Ingreso con Terminal Rápido (Teclado)</h2>
                     <p>El "Terminal de Ingreso Rápido" es la forma más veloz de ingresar respuestas en secuencia.</p>
                     <ul>
-                        <li>Escribe una cadena de respuestas. Por ejemplo: <code>ABC01O</code>.</li>
+                        <li>Escribe una cadena de respuestas. Por ejemplo: <code>ABCD01O</code>.</li>
                         <li>El sistema validará los caracteres en tiempo real.</li>
                         <li>Presiona la tecla <kbd>Enter</kbd> para aplicar las respuestas.</li>
                         <li><strong>Ingreso Múltiple:</strong> Usa un asterisco. Por ejemplo, <code>A*5</code> es lo mismo que <code>AAAAA</code>.</li>
@@ -1597,7 +1600,6 @@
                     </ul>
                 `;
 
-                // Create modal elements
                 const modalOverlay = document.createElement('div');
                 modalOverlay.className = 'guide-modal-overlay';
                 
@@ -1617,7 +1619,6 @@
                 modalOverlay.appendChild(modalContent);
                 document.body.appendChild(modalOverlay);
 
-                // Add close functionality
                 const closeButton = modalOverlay.querySelector('.guide-modal-close-btn');
                 closeButton.onclick = () => {
                     modalOverlay.remove();
@@ -1629,7 +1630,6 @@
                 };
             }
 
-            // --- Initialize everything ---
             populateTable();
             if (tableBody.rows.length > 0) {
                 setActiveCell(tableBody.rows[0].cells[2]);
@@ -1643,7 +1643,7 @@
             });
             document.getElementById('help-btn').addEventListener('click', () => {
                 const modal = document.createElement('div');
-                modal.className = 'modal-overlay show'; // Re-use existing modal styles
+                modal.className = 'modal-overlay show'; 
                 
                 const modalContent = document.createElement('div');
                 modalContent.className = 'modal-content';
@@ -1660,7 +1660,7 @@
                     <div style="margin: 20px 0;">
                         <h3 style="color: #2563eb;">🖥️ INGRESO POR TECLADO:</h3>
                         <ul style="color: #555; line-height: 1.6; padding-left: 20px;">
-                            <li>Escribe directamente las respuestas (ej: <code>ABCO11</code>).</li>
+                            <li>Escribe directamente las respuestas (ej: <code>ABCDO11</code>).</li>
                             <li>Presiona <strong>ENTER</strong> para confirmar.</li>
                             <li>Usa <strong>BACKSPACE</strong> para borrar.</li>
                             <li>Para repetir una respuesta, usa un asterisco (ej: <code>A*5</code>).</li>
@@ -1672,7 +1672,7 @@
                         <ul style="color: #555; line-height: 1.6; padding-left: 20px;">
                             <li>Haz clic en el micrófono 🎤 para activarlo.</li>
                             <li>Habla <strong>CLARO y PAUSADO</strong>.</li>
-                            <li>Di las letras individualmente: "A", "B", "C".</li>
+                            <li>Di las letras individualmente: "A", "B", "C", "D".</li>
                             <li>Para números di: "dos", "uno", "cero".</li>
                             <li>Presiona <strong>ENTER</strong> para aplicar las respuestas reconocidas.</li>
                         </ul>
@@ -1697,7 +1697,6 @@
                 modal.appendChild(modalContent);
                 document.body.appendChild(modal);
                 
-                // Cerrar al hacer clic fuera del modal
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
                         modal.remove();
